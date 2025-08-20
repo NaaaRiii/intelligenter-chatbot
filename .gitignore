@@ -70,3 +70,7 @@ dump.rdb
 # 機密情報
 credentials.yml.enc
 master.key
+
+create-all-issues.sh
+
+github-issues

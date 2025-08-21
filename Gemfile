@@ -1,6 +1,7 @@
 source "https://rubygems.org"
+git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-ruby "3.2.2"
+ruby "3.2.8"
 
 # Rails本体
 gem "rails", "~> 7.1.0"
@@ -16,26 +17,22 @@ gem "puma", "~> 6.0"
 gem "redis", "~> 5.0"
 gem "sidekiq", "~> 7.0"
 
-# フロントエンド統合
-gem "vite_rails", "~> 3.0"
-gem "stimulus-rails"
-gem "turbo-rails"
+# ActionCable (Railsに含まれる)
+
+# フロントエンド統合（後で設定）
+# gem "vite_rails", "~> 3.0"
 
 # API
 gem "jbuilder"
 gem "rack-cors"
 
-# 認証・認可（後で追加予定）
-# gem "devise"
-# gem "pundit"
-
 # その他
 gem "bootsnap", ">= 1.4.4", require: false
-gem "tzinfo-data", platforms: %i[ windows jruby ]
+gem "tzinfo-data", platforms: %i[ mingw mswin x64_mingw jruby ]
 
 group :development, :test do
   # デバッグ
-  gem "debug", platforms: %i[ mri windows ]
+  gem "debug", platforms: %i[ mri mingw x64_mingw ]
   gem "pry-rails"
   gem "pry-byebug"
   
@@ -55,7 +52,6 @@ group :development do
   # 開発効率化
   gem "listen", "~> 3.3"
   gem "spring"
-  gem "web-console"
   
   # パフォーマンス
   gem "bullet"
@@ -69,7 +65,6 @@ group :test do
   # システムテスト
   gem "capybara"
   gem "selenium-webdriver"
-  gem "webdrivers"
   
   # API テスト
   gem "vcr"

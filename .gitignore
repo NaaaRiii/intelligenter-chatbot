@@ -74,3 +74,5 @@ master.key
 create-all-issues.sh
 
 github-issues
+# Ignore master key for decrypting credentials and more.
+/config/master.key

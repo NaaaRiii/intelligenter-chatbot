@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tailwind CSS コンポーネントデモ</title>
+  <%= vite_client_tag %>
+  <%= vite_javascript_tag 'application' %>
+</head>
+<body class="bg-gray-50 dark:bg-gray-900 p-8">
+  <div class="max-w-7xl mx-auto">
+    <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-8">Tailwind CSS コンポーネントデモ</h1>
+    
+    <!-- ボタンセクション -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-200">ボタン</h2>
+      <div class="space-y-4">
+        <div class="flex flex-wrap gap-4">
+          <button class="btn-primary">プライマリ</button>
+          <button class="btn-secondary">セカンダリ</button>
+          <button class="btn-outline">アウトライン</button>
+          <button class="btn-danger">危険</button>
+        </div>
+        <div class="flex flex-wrap gap-4">
+          <button class="btn-primary btn-sm">小サイズ</button>
+          <button class="btn-primary">通常サイズ</button>
+          <button class="btn-primary btn-lg">大サイズ</button>
+        </div>
+        <div class="flex gap-4">
+          <button class="btn-primary" disabled>無効化</button>
+        </div>
+      </div>
+    </section>
+    
+    <!-- カードセクション -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-200">カード</h2>
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div class="card">
+          <div class="card-header">
+            <h3 class="text-lg font-semibold">カードタイトル</h3>
+          </div>
+          <div class="card-body">
+            <p class="text-gray-600 dark:text-gray-300">
+              これはカードの本文です。様々な情報を表示できます。
+            </p>
+          </div>
+          <div class="card-footer">
+            <button class="btn-primary btn-sm">詳細を見る</button>
+          </div>
+        </div>
+        
+        <div class="card">
+          <img src="https://via.placeholder.com/400x200" alt="Placeholder" class="w-full h-48 object-cover">
+          <div class="card-body">
+            <h3 class="text-lg font-semibold mb-2">画像付きカード</h3>
+            <p class="text-gray-600 dark:text-gray-300">
+              画像を含むカードの例です。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- フォーム要素セクション -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-200">フォーム要素</h2>
+      <div class="card max-w-2xl">
+        <div class="card-body">
+          <form class="space-y-6">
+            <div>
+              <label for="text-input" class="form-label">テキスト入力</label>
+              <input type="text" id="text-input" class="form-input" placeholder="テキストを入力">
+              <p class="form-hint">ヒントテキストです</p>
+            </div>
+            
+            <div>
+              <label for="select" class="form-label">セレクトボックス</label>
+              <select id="select" class="form-select">
+                <option>オプション1</option>
+                <option>オプション2</option>
+                <option>オプション3</option>
+              </select>
+            </div>
+            
+            <div>
+              <label for="textarea" class="form-label">テキストエリア</label>
+              <textarea id="textarea" class="form-textarea" rows="3" placeholder="複数行のテキスト"></textarea>
+            </div>
+            
+            <div class="flex items-center space-x-4">
+              <label class="flex items-center">
+                <input type="checkbox" class="form-checkbox">
+                <span class="ml-2">チェックボックス</span>
+              </label>
+              <label class="flex items-center">
+                <input type="radio" name="radio" class="form-radio">
+                <span class="ml-2">ラジオボタン</span>
+              </label>
+            </div>
+            
+            <button type="submit" class="btn-primary">送信</button>
+          </form>
+        </div>
+      </div>
+    </section>
+    
+    <!-- アラートセクション -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-200">アラート</h2>
+      <div class="space-y-4 max-w-2xl">
+        <div class="alert-info">
+          <strong>情報:</strong> これは情報メッセージです。
+        </div>
+        <div class="alert-success">
+          <strong>成功:</strong> 操作が正常に完了しました。
+        </div>
+        <div class="alert-warning">
+          <strong>警告:</strong> 注意が必要な内容があります。
+        </div>
+        <div class="alert-error">
+          <strong>エラー:</strong> 問題が発生しました。
+        </div>
+      </div>
+    </section>
+    
+    <!-- バッジセクション -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-200">バッジ</h2>
+      <div class="flex flex-wrap gap-2">
+        <span class="badge-primary">Primary</span>
+        <span class="badge-success">Success</span>
+        <span class="badge-warning">Warning</span>
+        <span class="badge-danger">Danger</span>
+      </div>
+    </section>
+    
+    <!-- チャットバブルセクション -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-200">チャットバブル</h2>
+      <div class="card max-w-2xl">
+        <div class="card-body space-y-4">
+          <div class="flex">
+            <div class="chat-bubble-bot">
+              こんにちは！何かお手伝いできることはありますか？
+            </div>
+          </div>
+          <div class="flex">
+            <div class="chat-bubble-user">
+              料金プランについて教えてください。
+            </div>
+          </div>
+          <div class="flex">
+            <div class="chat-bubble-bot">
+              承知いたしました。料金プランについてご説明いたします。
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <!-- レスポンシブグリッド -->
+    <section class="mb-12">
+      <h2 class="text-2xl font-semibold mb-6 text-gray-800 dark:text-gray-200">レスポンシブグリッド</h2>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-primary-500 text-white p-4 rounded text-center">1</div>
+        <div class="bg-primary-500 text-white p-4 rounded text-center">2</div>
+        <div class="bg-primary-500 text-white p-4 rounded text-center">3</div>
+        <div class="bg-primary-500 text-white p-4 rounded text-center">4</div>
+      </div>
+    </section>
+    
+    <!-- ダークモード切り替えボタン -->
+    <div class="fixed bottom-8 right-8">
+      <button 
+        data-controller="theme"
+        data-action="click->theme#toggle"
+        class="btn-primary rounded-full w-12 h-12 flex items-center justify-center shadow-lg"
+      >
+        <span data-theme-target="icon">🌙</span>
+      </button>
+    </div>
+  </div>
+</body>
+</html>

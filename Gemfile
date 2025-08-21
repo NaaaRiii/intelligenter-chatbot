@@ -15,7 +15,7 @@ gem 'puma', '~> 6.0'
 
 # Redis & 非同期処理
 gem 'redis', '~> 5.0'
-gem 'sidekiq', '~> 7.0'
+gem 'sidekiq', '~> 8.0'
 
 # ActionCable (Railsに含まれる)
 

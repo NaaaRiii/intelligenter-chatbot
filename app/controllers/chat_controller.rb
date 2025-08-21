@@ -13,7 +13,7 @@ class ChatController < ApplicationController
 
   def set_conversation
     @conversation = if params[:conversation_id]
-                      Conversation.find_by(id: params[:conversation_id])
+                      Conversation.find_by(id: params[:conversation_id]) || create_new_conversation
                     else
                       create_new_conversation
                     end

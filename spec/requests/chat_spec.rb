@@ -36,7 +36,7 @@ RSpec.describe 'Chats', type: :request do
 
     it '存在しない会話IDの場合は新しい会話を作成する' do
       expect do
-        get conversation_chat_path(id: 999_999)
+        get conversation_chat_path(conversation_id: 999_999)
       end.to change(Conversation, :count).by(1)
     end
   end

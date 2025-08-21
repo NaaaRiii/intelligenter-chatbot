@@ -19,8 +19,8 @@ gem "sidekiq", "~> 7.0"
 
 # ActionCable (Railsに含まれる)
 
-# フロントエンド統合（後で設定）
-# gem "vite_rails", "~> 3.0"
+# フロントエンド統合
+gem "vite_rails", "~> 3.0"
 
 # API
 gem "jbuilder"

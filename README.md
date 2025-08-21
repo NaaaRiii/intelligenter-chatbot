@@ -18,3 +18,50 @@
 
 ## プロジェクトステータス
 🔄 計画・設計段階
+
+## 開発環境セットアップ
+
+### 必要なソフトウェア
+- Docker Desktop
+- Git
+
+### セットアップ手順
+
+```bash
+# リポジトリをクローン
+git clone https://github.com/NaaaRiii/intelligenter-chatbot.git
+cd intelligenter-chatbot
+
+# Docker環境を構築・起動
+make setup
+
+# または個別に実行
+docker-compose build
+docker-compose up -d
+```
+
+### 開発用コマンド
+
+```bash
+# コンテナ起動
+make up
+
+# コンテナ停止
+make down
+
+# ログ確認
+make logs
+
+# Railsコンソール
+make console
+
+# テスト実行
+make test
+
+# データベースリセット
+make db-reset
+```
+
+### アクセスURL
+- Rails: http://localhost:3000
+- Vite: http://localhost:3036

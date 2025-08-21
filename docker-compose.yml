@@ -1,0 +1,134 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: chatbot_postgres
+    environment:
+      POSTGRES_USER: chatbot
+      POSTGRES_PASSWORD: chatbot_password
+      POSTGRES_DB: chatbot_development
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatbot"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis for ActionCable and Sidekiq
+  redis:
+    image: redis:7-alpine
+    container_name: chatbot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Rails Application
+  app:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+    container_name: chatbot_app
+    stdin_open: true
+    tty: true
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_USER: chatbot
+      DATABASE_PASSWORD: chatbot_password
+      DATABASE_NAME: chatbot_development
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: development
+      RAILS_LOG_TO_STDOUT: "true"
+      SECRET_KEY_BASE: development_secret_key_base_at_least_64_characters_long_1234567890
+      WEB_CONCURRENCY: 2
+      RAILS_MAX_THREADS: 5
+    volumes:
+      - .:/app:cached
+      - bundle_cache:/usr/local/bundle
+      - node_modules:/app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      bash -c "
+        bundle check || bundle install &&
+        yarn install --check-files &&
+        rm -f tmp/pids/server.pid &&
+        bundle exec rails db:prepare &&
+        bundle exec rails server -b 0.0.0.0
+      "
+
+  # Vite Dev Server
+  vite:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+    container_name: chatbot_vite
+    environment:
+      NODE_ENV: development
+      VITE_RUBY_HOST: 0.0.0.0
+    volumes:
+      - .:/app:cached
+      - node_modules:/app/node_modules
+    ports:
+      - "3036:3036"
+    depends_on:
+      - app
+    command: >
+      bash -c "
+        yarn install --check-files &&
+        bin/vite dev
+      "
+
+  # Sidekiq Background Jobs
+  sidekiq:
+    build:
+      context: .
+      target: development
+      dockerfile: Dockerfile
+    container_name: chatbot_sidekiq
+    environment:
+      DATABASE_HOST: postgres
+      DATABASE_USER: chatbot
+      DATABASE_PASSWORD: chatbot_password
+      DATABASE_NAME: chatbot_development
+      REDIS_URL: redis://redis:6379/0
+      RAILS_ENV: development
+      RAILS_LOG_TO_STDOUT: "true"
+      SECRET_KEY_BASE: development_secret_key_base_at_least_64_characters_long_1234567890
+    volumes:
+      - .:/app:cached
+      - bundle_cache:/usr/local/bundle
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      bash -c "
+        bundle check || bundle install &&
+        bundle exec sidekiq
+      "
+
+volumes:
+  postgres_data:
+  redis_data:
+  bundle_cache:
+  node_modules:

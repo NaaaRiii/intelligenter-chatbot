@@ -26,6 +26,13 @@ gem 'vite_rails', '~> 3.0'
 gem 'jbuilder'
 gem 'rack-cors'
 
+# GraphQL
+gem 'graphiql-rails', '~> 1.9', group: :development
+gem 'graphql', '~> 2.2'
+
+# Pagination
+gem 'kaminari', '~> 1.2'
+
 # その他
 gem 'bootsnap', '>= 1.4.4', require: false
 gem 'tzinfo-data', platforms: %i[mingw mswin x64_mingw jruby]

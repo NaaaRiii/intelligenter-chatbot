@@ -9,6 +9,9 @@ class User < ApplicationRecord
                     format: { with: URI::MailTo::EMAIL_REGEXP }
   validates :name, presence: true
 
+  # コールバック
+  before_create :generate_api_token
+
   # スコープ
   scope :active_recently, -> { where('last_active_at > ?', 1.week.ago) }
   scope :active, -> { where('last_active_at > ?', 24.hours.ago) }
@@ -48,5 +51,16 @@ class User < ApplicationRecord
   def admin?
     # TODO: 実際の管理者判定ロジックを実装
     email&.ends_with?('@admin.com') || false
+  end
+
+  def regenerate_api_token!
+    generate_api_token
+    save!
+  end
+
+  private
+
+  def generate_api_token
+    self.api_token = SecureRandom.hex(32)
   end
 end

@@ -54,11 +54,12 @@ RSpec.describe Message, type: :model do
       end
 
       it 'broadcasts to ActionCable' do
-        expect(ActionCable.server).to receive(:broadcast).with(
+        allow(ActionCable.server).to receive(:broadcast)
+        message.save
+        expect(ActionCable.server).to have_received(:broadcast).with(
           "conversation_#{conversation.id}",
           hash_including(:message)
         )
-        message.save
       end
     end
   end

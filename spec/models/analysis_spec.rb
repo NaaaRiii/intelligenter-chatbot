@@ -42,12 +42,12 @@ RSpec.describe Analysis, type: :model do
     end
 
     describe '.needs_escalation' do
-      let!(:escalated) { create(:analysis, escalated: true) }
-      let!(:not_escalated) { create(:analysis, escalated: false, priority_level: 'high') }
+      let!(:escalated_analysis) { create(:analysis, escalated: true) }
+      let!(:not_escalated_analysis) { create(:analysis, escalated: false, priority_level: 'high') }
 
       it 'returns high priority not yet escalated' do
-        expect(described_class.needs_escalation).to include(not_escalated)
-        expect(described_class.needs_escalation).not_to include(escalated)
+        expect(described_class.needs_escalation).to include(not_escalated_analysis)
+        expect(described_class.needs_escalation).not_to include(escalated_analysis)
       end
     end
   end

@@ -83,15 +83,15 @@ RSpec.describe User, type: :model do
 
   describe '#average_sentiment_score' do
     let(:user) { create(:user) }
-    let(:conversation1) { create(:conversation, user: user) }
-    let(:conversation2) { create(:conversation, user: user) }
+    let(:first_conversation) { create(:conversation, user: user) }
+    let(:second_conversation) { create(:conversation, user: user) }
 
     before do
       create(:analysis,
-             conversation: conversation1,
+             conversation: first_conversation,
              analysis_data: { 'sentiment' => { 'score' => 0.8 } })
       create(:analysis,
-             conversation: conversation2,
+             conversation: second_conversation,
              analysis_data: { 'sentiment' => { 'score' => 0.6 } })
     end
 

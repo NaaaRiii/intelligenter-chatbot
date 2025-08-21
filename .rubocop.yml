@@ -1,4 +1,4 @@
-require:
+plugins:
   - rubocop-rails
   - rubocop-rspec
 
@@ -36,3 +36,11 @@ RSpec/ExampleLength:
 
 RSpec/MultipleExpectations:
   Max: 5
+
+RSpec/DescribeClass:
+  Exclude:
+    - 'spec/lib/sample_unit_spec.rb'
+    - 'spec/models/sample_spec.rb'
+
+RSpec/MultipleMemoizedHelpers:
+  Max: 6

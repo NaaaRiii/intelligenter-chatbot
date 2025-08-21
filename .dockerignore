@@ -1,0 +1,66 @@
+# Git
+.git
+.gitignore
+
+# Logs
+log/*
+*.log
+
+# Temp files
+tmp/*
+!tmp/.keep
+
+# Storage
+storage/*
+!storage/.keep
+
+# Public assets
+public/assets
+public/packs
+public/packs-test
+
+# Node
+node_modules
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Ruby
+.bundle
+vendor/bundle
+
+# Database
+*.sqlite3
+*.db
+
+# Environment
+.env
+.env.*
+
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Test
+coverage
+.rspec_status
+
+# Documentation
+*.md
+docs/
+
+# CI/CD
+.github
+.gitlab-ci.yml
+
+# Docker
+docker-compose.override.yml
+Dockerfile.dev
+
+# Build artifacts
+dist/
+build/

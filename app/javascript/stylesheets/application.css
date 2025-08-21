@@ -1,0 +1,15 @@
+/* アプリケーション全体のスタイル */
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+@import './chat.css';
+
+/* グローバルスタイル */
+body {
+  @apply antialiased;
+}
+
+/* フォーカススタイル */
+:focus-visible {
+  @apply outline-none ring-2 ring-blue-500 ring-offset-2;
+}

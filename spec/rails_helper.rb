@@ -33,6 +33,10 @@ end
 RSpec.configure do |config|
   # FactoryBotの設定
   config.include FactoryBot::Syntax::Methods
+  
+  # ActiveJobテストヘルパー
+  config.include ActiveJob::TestHelper, type: :channel
+  config.include ActiveJob::TestHelper, type: :job
 
   # Remove this line if you're not using ActiveRecord or ActiveRecord fixtures
   config.fixture_paths = [

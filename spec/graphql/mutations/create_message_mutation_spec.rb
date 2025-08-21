@@ -37,12 +37,12 @@ RSpec.describe 'GraphQL CreateMessage Mutation', type: :request do
       expect do
         post '/graphql', params: { query: mutation, variables: variables.to_json }, headers: headers
       end.to change(Message, :count).by(1)
-             .and have_enqueued_job(ProcessAiResponseJob)
+                                    .and have_enqueued_job(ProcessAiResponseJob)
 
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
       data = json['data']['createMessage']
-      
+
       expect(data['message']['content']).to eq('GraphQLテストメッセージ')
       expect(data['message']['role']).to eq('user')
       expect(data['errors']).to be_empty
@@ -60,7 +60,7 @@ RSpec.describe 'GraphQL CreateMessage Mutation', type: :request do
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
       data = json['data']['createMessage']
-      
+
       expect(data['message']).to be_nil
       expect(data['errors']).not_to be_empty
     end

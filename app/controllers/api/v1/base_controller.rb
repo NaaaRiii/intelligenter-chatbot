@@ -19,9 +19,7 @@ module Api
         end
       end
 
-      def current_user
-        @current_user
-      end
+      attr_reader :current_user
 
       def not_found(exception)
         render json: { error: exception.message }, status: :not_found

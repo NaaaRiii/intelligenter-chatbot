@@ -27,8 +27,8 @@ gem 'jbuilder'
 gem 'rack-cors'
 
 # GraphQL
-gem 'graphql', '~> 2.2'
 gem 'graphiql-rails', '~> 1.9', group: :development
+gem 'graphql', '~> 2.2'
 
 # Pagination
 gem 'kaminari', '~> 1.2'

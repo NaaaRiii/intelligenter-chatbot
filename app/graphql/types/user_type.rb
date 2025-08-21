@@ -14,12 +14,8 @@ module Types
     field :average_sentiment_score, Float, null: true
     field :conversations, [Types::ConversationType], null: false
 
-    def conversation_count
-      object.conversation_count
-    end
+    delegate :conversation_count, to: :object
 
-    def average_sentiment_score
-      object.average_sentiment_score
-    end
+    delegate :average_sentiment_score, to: :object
   end
 end

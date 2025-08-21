@@ -8,13 +8,13 @@ RSpec.describe 'Api::V1::Messages', type: :request do
   let(:headers) { { 'Authorization' => "Bearer #{user.api_token}" } }
 
   describe 'GET /api/v1/conversations/:conversation_id/messages' do
-    let!(:messages) { create_list(:message, 10, conversation: conversation) }
+    before { create_list(:message, 10, conversation: conversation) }
 
     it 'メッセージ一覧を取得できる' do
       get "/api/v1/conversations/#{conversation.id}/messages", headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['messages'].size).to eq(10)
       expect(json['meta']).to include('current_page', 'total_pages')
     end
@@ -27,7 +27,7 @@ RSpec.describe 'Api::V1::Messages', type: :request do
       get "/api/v1/conversations/#{conversation.id}/messages/#{message.id}", headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['id']).to eq(message.id)
       expect(json['content']).to eq(message.content)
     end
@@ -45,26 +45,26 @@ RSpec.describe 'Api::V1::Messages', type: :request do
 
     it '新しいメッセージを作成できる' do
       expect do
-        post "/api/v1/conversations/#{conversation.id}/messages", 
-             params: valid_params, 
+        post "/api/v1/conversations/#{conversation.id}/messages",
+             params: valid_params,
              headers: headers
       end.to change(Message, :count).by(1)
-                .and have_enqueued_job(ProcessAiResponseJob)
+                                    .and have_enqueued_job(ProcessAiResponseJob)
 
       expect(response).to have_http_status(:created)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['content']).to eq('テストメッセージです')
       expect(json['role']).to eq('user')
     end
 
     it '無効なパラメータではエラーになる' do
       invalid_params = { message: { content: '', role: 'user' } }
-      post "/api/v1/conversations/#{conversation.id}/messages", 
-           params: invalid_params, 
+      post "/api/v1/conversations/#{conversation.id}/messages",
+           params: invalid_params,
            headers: headers
 
       expect(response).to have_http_status(:unprocessable_entity)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json).to have_key('errors')
     end
   end
@@ -80,12 +80,12 @@ RSpec.describe 'Api::V1::Messages', type: :request do
     end
 
     it 'メッセージを更新できる' do
-      patch "/api/v1/conversations/#{conversation.id}/messages/#{message.id}", 
-            params: update_params, 
+      patch "/api/v1/conversations/#{conversation.id}/messages/#{message.id}",
+            params: update_params,
             headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['content']).to eq('更新されたメッセージ')
     end
   end
@@ -95,7 +95,7 @@ RSpec.describe 'Api::V1::Messages', type: :request do
 
     it 'メッセージを削除できる' do
       expect do
-        delete "/api/v1/conversations/#{conversation.id}/messages/#{message.id}", 
+        delete "/api/v1/conversations/#{conversation.id}/messages/#{message.id}",
                headers: headers
       end.to change(Message, :count).by(-1)
 

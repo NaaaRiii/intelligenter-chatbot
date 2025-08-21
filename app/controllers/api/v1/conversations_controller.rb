@@ -63,7 +63,13 @@ module Api
       end
 
       def conversation_json(conversation, include_messages: false)
-        json = {
+        json = build_conversation_json(conversation)
+        json[:messages] = build_messages_json(conversation) if include_messages
+        json
+      end
+
+      def build_conversation_json(conversation)
+        {
           id: conversation.id,
           session_id: conversation.session_id,
           is_active: conversation.active?,
@@ -76,20 +82,18 @@ module Api
             :analysis_type, :sentiment, :priority_level
           )
         }
+      end
 
-        if include_messages
-          json[:messages] = conversation.messages.chronological.map do |msg|
-            {
-              id: msg.id,
-              content: msg.content,
-              role: msg.role,
-              created_at: msg.created_at,
-              metadata: msg.metadata
-            }
-          end
+      def build_messages_json(conversation)
+        conversation.messages.chronological.map do |msg|
+          {
+            id: msg.id,
+            content: msg.content,
+            role: msg.role,
+            created_at: msg.created_at,
+            metadata: msg.metadata
+          }
         end
-
-        json
       end
 
       def pagination_meta(collection)

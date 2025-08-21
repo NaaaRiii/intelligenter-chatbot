@@ -8,7 +8,7 @@ RSpec.describe 'GraphQL Conversations Query', type: :request do
 
   describe 'conversations query' do
     let!(:conversations) { create_list(:conversation, 3, user: user) }
-    
+
     let(:query) do
       <<~GRAPHQL
         query {
@@ -28,7 +28,7 @@ RSpec.describe 'GraphQL Conversations Query', type: :request do
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
       data = json['data']['conversations']
-      
+
       expect(data.size).to eq(3)
       expect(data.first).to include('id', 'sessionId', 'isActive', 'messageCount')
     end
@@ -37,7 +37,7 @@ RSpec.describe 'GraphQL Conversations Query', type: :request do
   describe 'conversation query' do
     let(:conversation) { create(:conversation, user: user) }
     let!(:messages) { create_list(:message, 3, conversation: conversation) }
-    
+
     let(:query) do
       <<~GRAPHQL
         query GetConversation($id: ID!) {
@@ -61,7 +61,7 @@ RSpec.describe 'GraphQL Conversations Query', type: :request do
       expect(response).to have_http_status(:ok)
       json = JSON.parse(response.body)
       data = json['data']['conversation']
-      
+
       expect(data['id']).to eq(conversation.id.to_s)
       expect(data['messages'].size).to eq(3)
     end

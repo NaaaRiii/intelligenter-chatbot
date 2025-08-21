@@ -11,9 +11,9 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
 
     it '会話一覧を取得できる' do
       get '/api/v1/conversations', headers: headers
-      
+
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['conversations'].size).to eq(3)
       expect(json['meta']).to include('current_page', 'total_pages', 'total_count')
     end
@@ -32,7 +32,7 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
       get "/api/v1/conversations/#{conversation.id}", headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['id']).to eq(conversation.id)
       expect(json['messages'].size).to eq(5)
     end
@@ -61,7 +61,7 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
       end.to change(Conversation, :count).by(1)
 
       expect(response).to have_http_status(:created)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['session_id']).to eq('test-session-123')
     end
 
@@ -70,7 +70,7 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
       post '/api/v1/conversations', params: invalid_params, headers: headers
 
       expect(response).to have_http_status(:unprocessable_entity)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json).to have_key('errors')
     end
   end
@@ -89,7 +89,7 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
       patch "/api/v1/conversations/#{conversation.id}", params: update_params, headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
+      json = response.parsed_body
       expect(json['metadata']).to include('updated' => true)
     end
   end

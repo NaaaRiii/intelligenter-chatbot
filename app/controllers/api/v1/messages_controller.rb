@@ -27,19 +27,26 @@ module Api
 
       # POST /api/v1/conversations/:conversation_id/messages
       def create
-        @message = @conversation.messages.build(message_params)
-        @message.metadata ||= {}
-        @message.metadata['sender_id'] = current_user.id
+        @message = build_message
 
         if @message.save
-          # AI応答をトリガー
-          ProcessAiResponseJob.perform_later(@message.id) if @message.from_user?
-
-          render json: message_json(@message), status: :created
+          handle_successful_message_creation
         else
           render json: { errors: @message.errors.full_messages },
                  status: :unprocessable_entity
         end
+      end
+
+      def build_message
+        message = @conversation.messages.build(message_params)
+        message.metadata ||= {}
+        message.metadata['sender_id'] = current_user.id
+        message
+      end
+
+      def handle_successful_message_creation
+        ProcessAiResponseJob.perform_later(@message.id) if @message.from_user?
+        render json: message_json(@message), status: :created
       end
 
       # PATCH/PUT /api/v1/conversations/:conversation_id/messages/:id

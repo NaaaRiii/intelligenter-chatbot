@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM", "DOM.Iterable"],
+    "jsx": "react-jsx",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "noEmit": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["app/javascript/*"],
+      "@/controllers/*": ["app/javascript/controllers/*"],
+      "@/components/*": ["app/javascript/components/*"],
+      "@/types/*": ["app/javascript/types/*"]
+    },
+    "types": [
+      "vite/client",
+      "vitest/globals",
+      "@types/node",
+      "@types/rails__actioncable"
+    ]
+  },
+  "include": [
+    "app/javascript/**/*",
+    "app/javascript/**/*.ts",
+    "app/javascript/**/*.tsx",
+    "vite.config.mts"
+  ],
+  "exclude": [
+    "node_modules",
+    "public",
+    "tmp",
+    "vendor"
+  ]
+}

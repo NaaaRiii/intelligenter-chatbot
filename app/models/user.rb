@@ -44,4 +44,9 @@ class User < ApplicationRecord
 
     scores.sum.to_f / scores.size
   end
+
+  def admin?
+    # TODO: 実際の管理者判定ロジックを実装
+    email&.ends_with?('@admin.com') || false
+  end
 end

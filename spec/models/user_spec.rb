@@ -2,17 +2,17 @@ require 'rails_helper'
 
 RSpec.describe User, type: :model do
   describe 'associations' do
-    it { should have_many(:conversations).dependent(:destroy) }
-    it { should have_many(:messages).through(:conversations) }
+    it { is_expected.to have_many(:conversations).dependent(:destroy) }
+    it { is_expected.to have_many(:messages).through(:conversations) }
   end
 
   describe 'validations' do
     subject { build(:user) }
-    
-    it { should validate_presence_of(:email) }
-    it { should validate_uniqueness_of(:email).case_insensitive }
-    it { should allow_value('user@example.com').for(:email) }
-    it { should_not allow_value('invalid-email').for(:email) }
+
+    it { is_expected.to validate_presence_of(:email) }
+    it { is_expected.to validate_uniqueness_of(:email).case_insensitive }
+    it { is_expected.to allow_value('user@example.com').for(:email) }
+    it { is_expected.not_to allow_value('invalid-email').for(:email) }
   end
 
   describe 'scopes' do
@@ -21,8 +21,8 @@ RSpec.describe User, type: :model do
       let!(:inactive_user) { create(:user, last_active_at: 2.days.ago) }
 
       it 'returns users active within last 24 hours' do
-        expect(User.active).to include(active_user)
-        expect(User.active).not_to include(inactive_user)
+        expect(described_class.active).to include(active_user)
+        expect(described_class.active).not_to include(inactive_user)
       end
     end
 
@@ -35,8 +35,8 @@ RSpec.describe User, type: :model do
       end
 
       it 'returns users who have conversations' do
-        expect(User.with_conversations).to include(user_with_conversations)
-        expect(User.with_conversations).not_to include(user_without_conversations)
+        expect(described_class.with_conversations).to include(user_with_conversations)
+        expect(described_class.with_conversations).not_to include(user_without_conversations)
       end
     end
   end
@@ -63,9 +63,9 @@ RSpec.describe User, type: :model do
     let(:user) { create(:user, last_active_at: 1.day.ago) }
 
     it 'updates last_active_at to current time' do
-      expect {
+      expect do
         user.update_last_active!
-      }.to change { user.last_active_at }
+      end.to(change(user, :last_active_at))
     end
   end
 
@@ -87,14 +87,12 @@ RSpec.describe User, type: :model do
     let(:conversation2) { create(:conversation, user: user) }
 
     before do
-      create(:analysis, 
-        conversation: conversation1,
-        analysis_data: { 'sentiment' => { 'score' => 0.8 } }
-      )
-      create(:analysis, 
-        conversation: conversation2,
-        analysis_data: { 'sentiment' => { 'score' => 0.6 } }
-      )
+      create(:analysis,
+             conversation: conversation1,
+             analysis_data: { 'sentiment' => { 'score' => 0.8 } })
+      create(:analysis,
+             conversation: conversation2,
+             analysis_data: { 'sentiment' => { 'score' => 0.6 } })
     end
 
     it 'returns average sentiment across all conversations' do

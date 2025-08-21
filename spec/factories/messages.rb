@@ -4,11 +4,11 @@ FactoryBot.define do
     content { Faker::Lorem.sentence }
     role { 'user' }
     metadata { {} }
-    
+
     trait :assistant do
       role { 'assistant' }
     end
-    
+
     trait :system do
       role { 'system' }
     end

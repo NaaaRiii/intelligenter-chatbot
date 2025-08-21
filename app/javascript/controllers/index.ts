@@ -10,11 +10,8 @@ window.Stimulus = application
 const controllers = import.meta.glob("./*_controller.ts", { eager: true })
 
 Object.entries(controllers).forEach(([path, module]: [string, any]) => {
-  const name = path
-    .replace("./", "")
-    .replace("_controller.ts", "")
-    .replace(/_/g, "-")
-  
+  const name = path.replace("./", "").replace("_controller.ts", "").replace(/_/g, "-")
+
   application.register(name, module.default)
 })
 

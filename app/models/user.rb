@@ -28,19 +28,20 @@ class User < ApplicationRecord
                  .order(created_at: :desc)
                  .limit(limit)
   end
-  
+
   def display_name
-    name.present? ? name : email.split('@').first
+    name.presence || email.split('@').first
   end
-  
+
   def conversation_count
     conversations.count
   end
-  
+
   def average_sentiment_score
     analyses = Analysis.joins(:conversation).where(conversations: { user_id: id })
-    scores = analyses.filter_map { |a| a.sentiment_score }
+    scores = analyses.filter_map(&:sentiment_score)
     return nil if scores.empty?
+
     scores.sum.to_f / scores.size
   end
 end

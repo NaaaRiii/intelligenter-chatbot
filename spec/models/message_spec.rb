@@ -2,13 +2,13 @@ require 'rails_helper'
 
 RSpec.describe Message, type: :model do
   describe 'associations' do
-    it { should belong_to(:conversation) }
+    it { is_expected.to belong_to(:conversation) }
   end
 
   describe 'validations' do
-    it { should validate_presence_of(:content) }
-    it { should validate_presence_of(:role) }
-    it { should validate_inclusion_of(:role).in_array(%w[user assistant system]) }
+    it { is_expected.to validate_presence_of(:content) }
+    it { is_expected.to validate_presence_of(:role) }
+    it { is_expected.to validate_inclusion_of(:role).in_array(%w[user assistant system]) }
   end
 
   describe 'scopes' do
@@ -19,25 +19,25 @@ RSpec.describe Message, type: :model do
 
     describe '.user_messages' do
       it 'returns only user messages' do
-        expect(Message.user_messages).to include(user_message)
-        expect(Message.user_messages).not_to include(assistant_message, system_message)
+        expect(described_class.user_messages).to include(user_message)
+        expect(described_class.user_messages).not_to include(assistant_message, system_message)
       end
     end
 
     describe '.assistant_messages' do
       it 'returns only assistant messages' do
-        expect(Message.assistant_messages).to include(assistant_message)
-        expect(Message.assistant_messages).not_to include(user_message, system_message)
+        expect(described_class.assistant_messages).to include(assistant_message)
+        expect(described_class.assistant_messages).not_to include(user_message, system_message)
       end
     end
 
     describe '.chronological' do
       it 'orders messages by created_at asc' do
-        Message.delete_all  # 既存のデータをクリア
+        described_class.delete_all # 既存のデータをクリア
         old_message = create(:message, created_at: 2.hours.ago)
         new_message = create(:message, created_at: 1.minute.ago)
-        
-        expect(Message.chronological.to_a).to eq([old_message, new_message])
+
+        expect(described_class.chronological.to_a).to eq([old_message, new_message])
       end
     end
   end
@@ -48,9 +48,9 @@ RSpec.describe Message, type: :model do
       let(:message) { build(:message, conversation: conversation) }
 
       it 'updates conversation updated_at' do
-        expect {
+        expect do
           message.save
-        }.to change { conversation.reload.updated_at }
+        end.to(change { conversation.reload.updated_at })
       end
 
       it 'broadcasts to ActionCable' do

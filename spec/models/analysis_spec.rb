@@ -2,13 +2,13 @@ require 'rails_helper'
 
 RSpec.describe Analysis, type: :model do
   describe 'associations' do
-    it { should belong_to(:conversation) }
+    it { is_expected.to belong_to(:conversation) }
   end
 
   describe 'validations' do
-    it { should validate_presence_of(:analysis_data) }
-    it { should validate_presence_of(:analysis_type) }
-    it { should validate_inclusion_of(:analysis_type).in_array(%w[needs sentiment escalation pattern]) }
+    it { is_expected.to validate_presence_of(:analysis_data) }
+    it { is_expected.to validate_presence_of(:analysis_type) }
+    it { is_expected.to validate_inclusion_of(:analysis_type).in_array(%w[needs sentiment escalation pattern]) }
   end
 
   describe 'scopes' do
@@ -19,25 +19,25 @@ RSpec.describe Analysis, type: :model do
 
     describe '.by_type' do
       it 'filters by analysis type' do
-        expect(Analysis.by_type('needs')).to include(needs_analysis)
-        expect(Analysis.by_type('needs')).not_to include(sentiment_analysis)
+        expect(described_class.by_type('needs')).to include(needs_analysis)
+        expect(described_class.by_type('needs')).not_to include(sentiment_analysis)
       end
     end
 
     describe '.high_priority' do
       it 'returns only high priority analyses' do
-        expect(Analysis.high_priority).to include(high_priority)
-        expect(Analysis.high_priority).not_to include(low_priority)
+        expect(described_class.high_priority).to include(high_priority)
+        expect(described_class.high_priority).not_to include(low_priority)
       end
     end
 
     describe '.recent' do
       it 'orders by created_at desc' do
-        Analysis.delete_all  # 既存のデータをクリア
+        described_class.delete_all # 既存のデータをクリア
         old_analysis = create(:analysis, created_at: 2.days.ago)
         new_analysis = create(:analysis, created_at: 1.hour.ago)
-        
-        expect(Analysis.recent.to_a).to eq([new_analysis, old_analysis])
+
+        expect(described_class.recent.to_a).to eq([new_analysis, old_analysis])
       end
     end
 
@@ -46,8 +46,8 @@ RSpec.describe Analysis, type: :model do
       let!(:not_escalated) { create(:analysis, escalated: false, priority_level: 'high') }
 
       it 'returns high priority not yet escalated' do
-        expect(Analysis.needs_escalation).to include(not_escalated)
-        expect(Analysis.needs_escalation).not_to include(escalated)
+        expect(described_class.needs_escalation).to include(not_escalated)
+        expect(described_class.needs_escalation).not_to include(escalated)
       end
     end
   end
@@ -55,11 +55,11 @@ RSpec.describe Analysis, type: :model do
   describe '#hidden_needs' do
     let(:analysis) do
       create(:analysis, analysis_data: {
-        'hidden_needs' => [
-          { 'need_type' => 'efficiency', 'confidence' => 0.9 },
-          { 'need_type' => 'cost_optimization', 'confidence' => 0.7 }
-        ]
-      })
+               'hidden_needs' => [
+                 { 'need_type' => 'efficiency', 'confidence' => 0.9 },
+                 { 'need_type' => 'cost_optimization', 'confidence' => 0.7 }
+               ]
+             })
     end
 
     it 'returns array of hidden needs' do
@@ -72,8 +72,8 @@ RSpec.describe Analysis, type: :model do
   describe '#sentiment_score' do
     let(:analysis) do
       create(:analysis, analysis_data: {
-        'sentiment' => { 'score' => 0.8, 'label' => 'positive' }
-      })
+               'sentiment' => { 'score' => 0.8, 'label' => 'positive' }
+             })
     end
 
     it 'returns sentiment score' do
@@ -108,10 +108,9 @@ RSpec.describe Analysis, type: :model do
 
     context 'when sentiment is frustrated' do
       let(:analysis) do
-        build(:analysis, 
-          sentiment: 'frustrated',
-          escalated: false
-        )
+        build(:analysis,
+              sentiment: 'frustrated',
+              escalated: false)
       end
 
       it 'returns true' do
@@ -124,15 +123,15 @@ RSpec.describe Analysis, type: :model do
     let(:analysis) { create(:analysis, escalated: false) }
 
     it 'marks as escalated' do
-      expect {
+      expect do
         analysis.escalate!
-      }.to change { analysis.escalated }.from(false).to(true)
+      end.to change(analysis, :escalated).from(false).to(true)
     end
 
     it 'sets escalated_at timestamp' do
-      expect {
+      expect do
         analysis.escalate!
-      }.to change { analysis.escalated_at }.from(nil)
+      end.to change(analysis, :escalated_at).from(nil)
     end
 
     # TODO: EscalationNotificationJobを実装後に有効化

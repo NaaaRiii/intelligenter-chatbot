@@ -11,7 +11,7 @@ class Message < ApplicationRecord
                       length: { maximum: MAX_CONTENT_LENGTH }
   validates :role, presence: true,
                    inclusion: { in: ROLES }
-  
+
   # コールバック
   after_create :update_conversation_timestamp
   after_create :broadcast_message
@@ -30,11 +30,11 @@ class Message < ApplicationRecord
   def user?
     role == 'user'
   end
-  
+
   def from_user?
     user?
   end
-  
+
   def assistant?
     role == 'assistant'
   end
@@ -60,17 +60,17 @@ class Message < ApplicationRecord
     self.metadata[key] = value
     save!
   end
-  
+
   private
-  
+
   def update_conversation_timestamp
     conversation.touch
   end
-  
+
   def broadcast_message
     ActionCable.server.broadcast(
       "conversation_#{conversation_id}",
-      { message: self.as_json }
+      { message: as_json }
     )
   end
 end

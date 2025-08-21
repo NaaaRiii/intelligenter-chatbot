@@ -32,12 +32,12 @@ RSpec.describe Message, type: :model do
     end
 
     describe '.chronological' do
-      let!(:old_message) { create(:message, created_at: 2.hours.ago) }
-      let!(:new_message) { create(:message, created_at: 1.minute.ago) }
-
       it 'orders messages by created_at asc' do
-        expect(Message.chronological.first).to eq(old_message)
-        expect(Message.chronological.last).to eq(new_message)
+        Message.delete_all  # 既存のデータをクリア
+        old_message = create(:message, created_at: 2.hours.ago)
+        new_message = create(:message, created_at: 1.minute.ago)
+        
+        expect(Message.chronological.to_a).to eq([old_message, new_message])
       end
     end
   end
@@ -54,9 +54,11 @@ RSpec.describe Message, type: :model do
       end
 
       it 'broadcasts to ActionCable' do
-        expect {
-          message.save
-        }.to have_broadcasted_to("conversation_#{conversation.id}")
+        expect(ActionCable.server).to receive(:broadcast).with(
+          "conversation_#{conversation.id}",
+          hash_including(:message)
+        )
+        message.save
       end
     end
   end

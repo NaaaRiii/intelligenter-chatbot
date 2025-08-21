@@ -11,6 +11,10 @@ class Message < ApplicationRecord
                       length: { maximum: MAX_CONTENT_LENGTH }
   validates :role, presence: true,
                    inclusion: { in: ROLES }
+  
+  # コールバック
+  after_create :update_conversation_timestamp
+  after_create :broadcast_message
 
   # デリゲーション
   delegate :user, to: :conversation
@@ -55,5 +59,18 @@ class Message < ApplicationRecord
     self.metadata ||= {}
     self.metadata[key] = value
     save!
+  end
+  
+  private
+  
+  def update_conversation_timestamp
+    conversation.touch
+  end
+  
+  def broadcast_message
+    ActionCable.server.broadcast(
+      "conversation_#{conversation_id}",
+      { message: self.as_json }
+    )
   end
 end

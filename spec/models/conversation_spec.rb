@@ -7,7 +7,9 @@ RSpec.describe Conversation, type: :model do
   end
 
   describe 'validations' do
-    it { should validate_presence_of(:session_id) }
+    subject { build(:conversation) }
+    
+    # session_idは自動生成されるため、プレゼンスバリデーションのテストは削除
     it { should validate_uniqueness_of(:session_id) }
   end
 

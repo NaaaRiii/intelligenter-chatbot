@@ -26,8 +26,11 @@ class Conversation < ApplicationRecord
   end
 
   def duration
-    return nil unless ended_at
-    ended_at - created_at
+    if ended_at
+      ended_at - created_at
+    elsif persisted?
+      Time.current - created_at
+    end
   end
 
   def message_count

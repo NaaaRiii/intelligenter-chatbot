@@ -4,7 +4,7 @@ import { Subscription } from '@rails/actioncable'
 interface MessageData {
   id: number
   content: string
-  role: string
+  role: 'user' | 'assistant' | 'system'
   created_at: string
   user?: {
     id: number

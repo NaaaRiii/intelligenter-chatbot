@@ -1,0 +1,94 @@
+<div class="chat-container" data-controller="chat" data-chat-conversation-id-value="<%= @conversation&.id %>" data-chat-user-id-value="<%= @current_user&.id %>">
+  <!-- チャットヘッダー -->
+  <div class="chat-header">
+    <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
+      <div>
+        <h1 class="text-xl font-bold">インテリジェントチャットボット</h1>
+        <p class="text-sm opacity-90">AI による会話分析サポート</p>
+      </div>
+      <div class="flex gap-2">
+        <span class="connection-status" data-chat-target="connectionStatus">
+          <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+          <span class="ml-1 text-sm">接続中</span>
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- メッセージエリア -->
+  <div class="chat-messages-container flex-1 overflow-y-auto p-4 bg-gray-50" data-chat-target="messagesContainer">
+    <div class="messages-list max-w-4xl mx-auto" data-chat-target="messagesList">
+      <% @messages.each do |message| %>
+        <div class="message-item <%= message.role %> mb-4 <%= message.from_user? ? 'text-right' : 'text-left' %>">
+          <div class="inline-block max-w-2xl">
+            <div class="message-bubble <%= message.from_user? ? 'bg-blue-600 text-white' : 'bg-white' %> px-4 py-3 rounded-lg shadow-sm">
+              <div class="message-content">
+                <%= simple_format(message.content) %>
+              </div>
+              <div class="message-meta text-xs <%= message.from_user? ? 'text-blue-100' : 'text-gray-500' %> mt-1">
+                <%= message.created_at.strftime("%H:%M") %>
+              </div>
+            </div>
+          </div>
+        </div>
+      <% end %>
+      
+      <!-- タイピングインジケーター -->
+      <div class="typing-indicator hidden" data-chat-target="typingIndicator">
+        <div class="flex items-center space-x-2 bg-white px-4 py-3 rounded-lg shadow-sm inline-block">
+          <div class="typing-dot bg-gray-400 rounded-full w-2 h-2 animate-bounce"></div>
+          <div class="typing-dot bg-gray-400 rounded-full w-2 h-2 animate-bounce" style="animation-delay: 0.1s"></div>
+          <div class="typing-dot bg-gray-400 rounded-full w-2 h-2 animate-bounce" style="animation-delay: 0.2s"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 入力エリア -->
+  <div class="chat-input-container border-t bg-white p-4">
+    <form class="max-w-4xl mx-auto" data-action="submit->chat#sendMessage">
+      <div class="flex gap-2">
+        <textarea 
+          data-chat-target="messageInput"
+          data-action="keydown->chat#handleKeydown input->chat#handleTyping"
+          class="flex-1 px-4 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="メッセージを入力してください..."
+          rows="2"
+        ></textarea>
+        <button 
+          type="submit"
+          data-chat-target="sendButton"
+          class="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          送信
+        </button>
+      </div>
+      <div class="mt-2 flex items-center justify-between text-sm text-gray-500">
+        <span>Shift + Enter で改行、Enter で送信</span>
+        <span data-chat-target="charCount">0 文字</span>
+      </div>
+    </form>
+  </div>
+</div>
+
+<style>
+  .chat-container {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .chat-messages-container {
+    flex: 1;
+    overflow-y: auto;
+  }
+  
+  @keyframes bounce {
+    0%, 60%, 100% {
+      transform: translateY(0);
+    }
+    30% {
+      transform: translateY(-10px);
+    }
+  }
+</style>

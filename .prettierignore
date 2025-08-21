@@ -1,0 +1,11 @@
+node_modules/
+public/
+vendor/
+tmp/
+log/
+coverage/
+dist/
+*.min.js
+*.min.css
+package-lock.json
+Gemfile.lock

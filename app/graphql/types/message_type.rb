@@ -13,15 +13,9 @@ module Types
 
     field :conversation, Types::ConversationType, null: false
     field :word_count, Integer, null: false
-    field :is_from_user, Boolean, null: false
-    field :is_from_assistant, Boolean, null: false
+    field :is_from_user, Boolean, null: false, method: :from_user?
+    field :is_from_assistant, Boolean, null: false, method: :from_assistant?
 
-    def is_from_user
-      object.from_user?
-    end
-
-    def is_from_assistant
-      object.from_assistant?
-    end
+    # resolver methods removed; method: option delegates to underlying model
   end
 end

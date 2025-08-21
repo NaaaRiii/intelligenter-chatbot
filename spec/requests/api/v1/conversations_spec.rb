@@ -7,15 +7,15 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
   let(:headers) { { 'Authorization' => "Bearer #{user.api_token}" } }
 
   describe 'GET /api/v1/conversations' do
-    let!(:conversations) { create_list(:conversation, 3, user: user) }
+    before { create_list(:conversation, 3, user: user) }
 
     it '会話一覧を取得できる' do
       get '/api/v1/conversations', headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = response.parsed_body
-      expect(json['conversations'].size).to eq(3)
-      expect(json['meta']).to include('current_page', 'total_pages', 'total_count')
+      body = response.parsed_body
+      expect(body['conversations'].size).to eq(3)
+      expect(body['meta']).to include('current_page', 'total_pages', 'total_count')
     end
 
     it '認証なしではアクセスできない' do
@@ -26,7 +26,8 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
 
   describe 'GET /api/v1/conversations/:id' do
     let(:conversation) { create(:conversation, user: user) }
-    let!(:messages) { create_list(:message, 5, conversation: conversation) }
+
+    before { create_list(:message, 5, conversation: conversation) }
 
     it '特定の会話を取得できる' do
       get "/api/v1/conversations/#{conversation.id}", headers: headers
@@ -89,8 +90,8 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
       patch "/api/v1/conversations/#{conversation.id}", params: update_params, headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = response.parsed_body
-      expect(json['metadata']).to include('updated' => true)
+      body = response.parsed_body
+      expect(body['metadata']).to include('updated' => true)
     end
   end
 

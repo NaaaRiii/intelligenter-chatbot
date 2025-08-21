@@ -17,10 +17,6 @@ module Types
     field :conversation, Types::ConversationType, null: false
     field :hidden_needs, [GraphQL::Types::JSON], null: false
     field :sentiment_score, Float, null: true
-    field :requires_escalation, Boolean, null: false
-
-    def requires_escalation
-      object.requires_escalation?
-    end
+    field :requires_escalation, Boolean, null: false, method: :requires_escalation?
   end
 end

@@ -16,14 +16,12 @@ module Types
     field :analyses, [Types::AnalysisType], null: false
     field :message_count, Integer, null: false
     field :duration, Integer, null: true
-    field :is_active, Boolean, null: false
+    field :is_active, Boolean, null: false, method: :active?
 
     def message_count
       object.messages.count
     end
 
-    def is_active
-      object.active?
-    end
+    # resolver method no longer needed due to method: option
   end
 end

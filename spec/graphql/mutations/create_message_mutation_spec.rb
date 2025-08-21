@@ -28,23 +28,15 @@ RSpec.describe 'GraphQL CreateMessage Mutation', type: :request do
     end
 
     it 'メッセージを作成できる' do
-      variables = {
-        conversationId: conversation.id,
-        content: 'GraphQLテストメッセージ',
-        role: 'user'
-      }
+      vars = { conversationId: conversation.id, content: 'GraphQLテストメッセージ', role: 'user' }
 
       expect do
-        post '/graphql', params: { query: mutation, variables: variables.to_json }, headers: headers
+        post '/graphql', params: { query: mutation, variables: vars.to_json }, headers: headers
       end.to change(Message, :count).by(1)
-                                    .and have_enqueued_job(ProcessAiResponseJob)
+      expect(ProcessAiResponseJob).to have_been_enqueued
 
-      expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
-      data = json['data']['createMessage']
-
-      expect(data['message']['content']).to eq('GraphQLテストメッセージ')
-      expect(data['message']['role']).to eq('user')
+      data = response.parsed_body.dig('data', 'createMessage')
+      expect(data['message']).to include('content' => 'GraphQLテストメッセージ', 'role' => 'user')
       expect(data['errors']).to be_empty
     end
 
@@ -58,8 +50,7 @@ RSpec.describe 'GraphQL CreateMessage Mutation', type: :request do
       post '/graphql', params: { query: mutation, variables: variables.to_json }, headers: headers
 
       expect(response).to have_http_status(:ok)
-      json = JSON.parse(response.body)
-      data = json['data']['createMessage']
+      data = response.parsed_body.dig('data', 'createMessage')
 
       expect(data['message']).to be_nil
       expect(data['errors']).not_to be_empty

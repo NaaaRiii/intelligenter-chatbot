@@ -7,7 +7,7 @@ export default class extends Controller {
   declare readonly hasOutputTarget: boolean
 
   connect(): void {
-    console.log("Hello controller connected")
+    // デバッグ用ログ（開発環境のみ）
     if (this.hasOutputTarget) {
       this.outputTarget.textContent = "Hello from Stimulus + TypeScript!"
     }

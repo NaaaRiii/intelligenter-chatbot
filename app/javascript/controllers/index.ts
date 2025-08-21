@@ -1,4 +1,4 @@
-import { Application } from "@hotwired/stimulus"
+import { Application, Controller } from "@hotwired/stimulus"
 
 const application = Application.start()
 
@@ -7,9 +7,13 @@ application.debug = false
 window.Stimulus = application
 
 // Auto-register all controllers
-const controllers = import.meta.glob("./*_controller.ts", { eager: true })
+interface ControllerModule {
+  default: typeof Controller
+}
 
-Object.entries(controllers).forEach(([path, module]: [string, any]) => {
+const controllers = import.meta.glob<ControllerModule>("./*_controller.ts", { eager: true })
+
+Object.entries(controllers).forEach(([path, module]) => {
   const name = path.replace("./", "").replace("_controller.ts", "").replace(/_/g, "-")
 
   application.register(name, module.default)

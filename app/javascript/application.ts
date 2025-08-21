@@ -4,6 +4,15 @@ import "./styles/application.css"
 
 // ActionCable設定
 import * as ActionCable from "@rails/actioncable"
-;(window as any).ActionCable = ActionCable
 
-console.log("Vite + Rails application started!")
+interface ExtendedWindow extends Window {
+  ActionCable: typeof ActionCable
+}
+
+;(window as ExtendedWindow).ActionCable = ActionCable
+
+// Development環境でのみログ出力
+if (process.env.NODE_ENV === "development") {
+  // eslint-disable-next-line no-console
+  console.log("Vite + Rails application started!")
+}

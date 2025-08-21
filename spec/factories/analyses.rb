@@ -7,16 +7,16 @@ FactoryBot.define do
     sentiment { 'neutral' }
     escalated { false }
     escalated_at { nil }
-    
+
     trait :high_priority do
       priority_level { 'high' }
     end
-    
+
     trait :escalated do
       escalated { true }
       escalated_at { Time.current }
     end
-    
+
     trait :frustrated do
       sentiment { 'frustrated' }
     end

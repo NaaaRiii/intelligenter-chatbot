@@ -14,7 +14,7 @@ class Analysis < ApplicationRecord
   validates :priority_level, inclusion: { in: PRIORITY_LEVELS },
                              allow_nil: true
   validates :sentiment, inclusion: { in: SENTIMENTS },
-                       allow_nil: true
+                        allow_nil: true
 
   # デリゲーション
   delegate :user, to: :conversation
@@ -34,7 +34,7 @@ class Analysis < ApplicationRecord
 
   def escalate!
     return if escalated?
-    
+
     update!(
       escalated: true,
       escalated_at: Time.current
@@ -43,9 +43,10 @@ class Analysis < ApplicationRecord
 
   def hidden_needs
     return [] unless analysis_data && analysis_data['hidden_needs']
+
     analysis_data['hidden_needs']
   end
-  
+
   def extract_hidden_needs
     hidden_needs
   end
@@ -53,7 +54,7 @@ class Analysis < ApplicationRecord
   def sentiment_score
     analysis_data&.dig('sentiment', 'score')
   end
-  
+
   def confidence_score
     analysis_data&.dig('confidence_score') || 0.0
   end
@@ -61,9 +62,10 @@ class Analysis < ApplicationRecord
   def evidence_quotes
     analysis_data&.dig('evidence_quotes') || []
   end
-  
+
   def requires_escalation?
     return false if escalated?
+
     priority_level == 'high' || sentiment == 'frustrated'
   end
 

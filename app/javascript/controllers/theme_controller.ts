@@ -2,7 +2,7 @@ import { Controller } from "@hotwired/stimulus"
 
 export default class extends Controller {
   static targets = ["icon"]
-  
+
   declare readonly iconTarget: HTMLElement
   declare readonly hasIconTarget: boolean
 

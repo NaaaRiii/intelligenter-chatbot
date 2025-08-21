@@ -1,0 +1,72 @@
+name: Deploy
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2.8'
+          bundler-cache: true
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          bundle install --jobs 4 --retry 3
+          npm ci
+      
+      - name: Run tests
+        env:
+          RAILS_ENV: test
+          DATABASE_URL: ${{ secrets.TEST_DATABASE_URL }}
+        run: |
+          bundle exec rails db:migrate
+          bundle exec rspec
+      
+      - name: Build assets
+        env:
+          RAILS_ENV: production
+          NODE_ENV: production
+        run: |
+          bundle exec rails assets:precompile
+          npm run build
+      
+      - name: Deploy to server
+        env:
+          DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+          DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
+        run: |
+          echo "デプロイ処理（環境に応じて実装）"
+          # 例: Capistrano, Docker, Heroku等のデプロイコマンド
+      
+      - name: Health check
+        run: |
+          echo "ヘルスチェック処理"
+          # curl等でアプリケーションの起動確認
+      
+      - name: Notify deployment
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ job.status }}' === 'success' ? '✅' : '❌';
+            const message = `デプロイ ${status}: ${context.payload.head_commit.message}`;
+            console.log(message);

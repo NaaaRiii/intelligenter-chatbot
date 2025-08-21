@@ -1,72 +1,76 @@
-source "https://rubygems.org"
+source 'https://rubygems.org'
 git_source(:github) { |repo| "https://github.com/#{repo}.git" }
 
-ruby "3.2.8"
+ruby '3.2.8'
 
 # Rails本体
-gem "rails", "~> 7.1.0"
+gem 'rails', '~> 7.1.0'
 
 # データベース
-gem "pg", "~> 1.5"
-gem "pgvector", "~> 0.2"
+gem 'pg', '~> 1.5'
+gem 'pgvector', '~> 0.2'
 
 # Webサーバー
-gem "puma", "~> 6.0"
+gem 'puma', '~> 6.0'
 
 # Redis & 非同期処理
-gem "redis", "~> 5.0"
-gem "sidekiq", "~> 7.0"
+gem 'redis', '~> 5.0'
+gem 'sidekiq', '~> 7.0'
 
 # ActionCable (Railsに含まれる)
 
 # フロントエンド統合
-gem "vite_rails", "~> 3.0"
+gem 'vite_rails', '~> 3.0'
 
 # API
-gem "jbuilder"
-gem "rack-cors"
+gem 'jbuilder'
+gem 'rack-cors'
 
 # その他
-gem "bootsnap", ">= 1.4.4", require: false
-gem "tzinfo-data", platforms: %i[ mingw mswin x64_mingw jruby ]
+gem 'bootsnap', '>= 1.4.4', require: false
+gem 'tzinfo-data', platforms: %i[mingw mswin x64_mingw jruby]
 
 group :development, :test do
   # デバッグ
-  gem "debug", platforms: %i[ mri mingw x64_mingw ]
-  gem "pry-rails"
-  gem "pry-byebug"
-  
+  gem 'debug', platforms: %i[mri mingw x64_mingw]
+  gem 'pry-byebug'
+  gem 'pry-rails'
+
   # テスト
-  gem "rspec-rails", "~> 6.0"
-  gem "factory_bot_rails"
-  gem "faker"
-  gem "shoulda-matchers"
-  
+  gem 'factory_bot_rails'
+  gem 'faker'
+  gem 'rspec-rails', '~> 6.0'
+  gem 'shoulda-matchers'
+
   # コード品質
-  gem "rubocop", require: false
-  gem "rubocop-rails", require: false
-  gem "rubocop-rspec", require: false
+  gem 'rubocop', require: false
+  gem 'rubocop-rails', require: false
+  gem 'rubocop-rspec', require: false
 end
 
 group :development do
   # 開発効率化
-  gem "listen", "~> 3.3"
-  gem "spring"
-  
+  gem 'listen', '~> 3.3'
+  gem 'spring'
+
   # パフォーマンス
-  gem "bullet"
-  gem "rack-mini-profiler"
+  gem 'bullet'
+  gem 'rack-mini-profiler'
 end
 
 group :test do
   # テストカバレッジ
-  gem "simplecov", require: false
-  
+  gem 'simplecov', require: false
+  gem 'simplecov-cobertura', require: false
+
+  # テスト結果フォーマッター
+  gem 'rspec_junit_formatter'
+
   # システムテスト
-  gem "capybara"
-  gem "selenium-webdriver"
-  
+  gem 'capybara'
+  gem 'selenium-webdriver'
+
   # API テスト
-  gem "vcr"
-  gem "webmock"
+  gem 'vcr'
+  gem 'webmock'
 end

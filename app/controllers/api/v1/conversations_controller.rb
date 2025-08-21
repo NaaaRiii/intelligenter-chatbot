@@ -59,7 +59,7 @@ module Api
       end
 
       def conversation_params
-        params.require(:conversation).permit(:session_id, :metadata)
+        params.require(:conversation).permit(:session_id, metadata: {})
       end
 
       def conversation_json(conversation, include_messages: false)

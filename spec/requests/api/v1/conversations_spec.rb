@@ -67,10 +67,10 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
     end
 
     it '無効なパラメータではエラーになる' do
-      invalid_params = { conversation: { session_id: nil } }
+      invalid_params = { conversation: { session_id: '' } }
       post '/api/v1/conversations', params: invalid_params, headers: headers
 
-      expect(response).to have_http_status(:unprocessable_entity)
+      expect(response).to have_http_status(:unprocessable_content).or have_http_status(:unprocessable_entity)
       json = response.parsed_body
       expect(json).to have_key('errors')
     end
@@ -87,11 +87,11 @@ RSpec.describe 'Api::V1::Conversations', type: :request do
     end
 
     it '会話を更新できる' do
-      patch "/api/v1/conversations/#{conversation.id}", params: update_params, headers: headers
+      json_headers = headers.merge('Content-Type' => 'application/json')
+      patch "/api/v1/conversations/#{conversation.id}", params: update_params.to_json, headers: json_headers
 
       expect(response).to have_http_status(:ok)
-      body = response.parsed_body
-      expect(body['metadata']).to include('updated' => true)
+      expect(response.parsed_body['metadata']).to include('updated' => true)
     end
   end
 

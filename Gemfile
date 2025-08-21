@@ -61,6 +61,10 @@ end
 group :test do
   # テストカバレッジ
   gem "simplecov", require: false
+  gem "simplecov-cobertura", require: false
+  
+  # テスト結果フォーマッター
+  gem "rspec_junit_formatter"
   
   # システムテスト
   gem "capybara"

@@ -8,10 +8,11 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest",
+    "test:unit": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest --coverage",
-    "lint": "eslint --ext .ts,.tsx .",
-    "lint:fix": "eslint --ext .ts,.tsx . --fix",
+    "lint": "eslint --ext .ts,.tsx app/javascript",
+    "lint:fix": "eslint --ext .ts,.tsx app/javascript --fix",
     "format": "prettier --write .",
     "type-check": "tsc --noEmit"
   },

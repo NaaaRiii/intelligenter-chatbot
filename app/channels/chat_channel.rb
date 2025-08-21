@@ -1,27 +1,13 @@
 class ChatChannel < ApplicationCable::Channel
   def subscribed
     # 会話IDを元にストリームを購読
-    if params[:conversation_id].present?
-      @conversation = Conversation.find_by(id: params[:conversation_id])
-      
-      if @conversation && authorized?
-        stream_from channel_name
-        
-        # 接続通知
-        ActionCable.server.broadcast(
-          channel_name,
-          {
-            type: 'user_connected',
-            user: current_user.slice(:id, :name, :email),
-            timestamp: Time.current
-          }
-        )
-      else
-        reject
-      end
-    else
-      reject
-    end
+    return reject if params[:conversation_id].blank?
+
+    @conversation = Conversation.find_by(id: params[:conversation_id])
+    return reject unless @conversation && authorized?
+
+    stream_from channel_name
+    broadcast_user_connected
   end
 
   def unsubscribed
@@ -36,7 +22,7 @@ class ChatChannel < ApplicationCable::Channel
         }
       )
     end
-    
+
     stop_all_streams
   end
 
@@ -44,30 +30,8 @@ class ChatChannel < ApplicationCable::Channel
   def send_message(data)
     return unless @conversation && authorized?
 
-    message = @conversation.messages.build(
-      content: data['content'],
-      role: 'user',
-      metadata: {
-        sender_id: current_user.id,
-        sent_at: Time.current
-      }
-    )
-
-    if message.save
-      # メッセージをブロードキャスト
-      broadcast_message(message)
-      
-      # AI応答をトリガー（非同期）
-      ProcessAiResponseJob.perform_later(message.id) if should_process_ai_response?
-    else
-      transmit(
-        {
-          type: 'error',
-          message: 'メッセージの送信に失敗しました',
-          errors: message.errors.full_messages
-        }
-      )
-    end
+    message = build_user_message(data)
+    handle_message_save(message)
   end
 
   # タイピング通知
@@ -87,25 +51,13 @@ class ChatChannel < ApplicationCable::Channel
   # 既読通知
   def mark_as_read(data)
     return unless @conversation && authorized?
+    return if data['message_id'].blank?
 
-    if data['message_id'].present?
-      message = @conversation.messages.find_by(id: data['message_id'])
-      
-      if message
-        message.add_metadata('read_by', current_user.id)
-        message.add_metadata('read_at', Time.current)
-        
-        ActionCable.server.broadcast(
-          channel_name,
-          {
-            type: 'message_read',
-            message_id: message.id,
-            user_id: current_user.id,
-            timestamp: Time.current
-          }
-        )
-      end
-    end
+    message = @conversation.messages.find_by(id: data['message_id'])
+    return unless message
+
+    update_message_read_status(message)
+    broadcast_message_read(message)
   end
 
   private
@@ -140,5 +92,63 @@ class ChatChannel < ApplicationCable::Channel
   def should_process_ai_response?
     # 最後のメッセージがユーザーからの場合のみAI応答を生成
     @conversation.messages.last&.from_user?
+  end
+
+  def broadcast_user_connected
+    ActionCable.server.broadcast(
+      channel_name,
+      {
+        type: 'user_connected',
+        user: current_user.slice(:id, :name, :email),
+        timestamp: Time.current
+      }
+    )
+  end
+
+  def build_user_message(data)
+    @conversation.messages.build(
+      content: data['content'],
+      role: 'user',
+      metadata: {
+        sender_id: current_user.id,
+        sent_at: Time.current
+      }
+    )
+  end
+
+  def handle_message_save(message)
+    if message.save
+      broadcast_message(message)
+      ProcessAiResponseJob.perform_later(message.id) if should_process_ai_response?
+    else
+      transmit_error(message)
+    end
+  end
+
+  def transmit_error(message)
+    transmit(
+      {
+        type: 'error',
+        message: 'メッセージの送信に失敗しました',
+        errors: message.errors.full_messages
+      }
+    )
+  end
+
+  def update_message_read_status(message)
+    message.add_metadata('read_by', current_user.id)
+    message.add_metadata('read_at', Time.current)
+  end
+
+  def broadcast_message_read(message)
+    ActionCable.server.broadcast(
+      channel_name,
+      {
+        type: 'message_read',
+        message_id: message.id,
+        user_id: current_user.id,
+        timestamp: Time.current
+      }
+    )
   end
 end

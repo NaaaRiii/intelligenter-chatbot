@@ -3,7 +3,7 @@ require 'rails_helper'
 RSpec.describe ChatChannel, type: :channel do
   let(:user) { create(:user) }
   let(:conversation) { create(:conversation, user: user) }
-  
+
   before do
     stub_connection(current_user: user)
   end
@@ -12,7 +12,7 @@ RSpec.describe ChatChannel, type: :channel do
     context 'with valid conversation_id' do
       it 'subscribes to a stream' do
         subscribe(conversation_id: conversation.id)
-        
+
         expect(subscription).to be_confirmed
         expect(subscription).to have_stream_from("conversation_#{conversation.id}")
       end
@@ -111,7 +111,7 @@ RSpec.describe ChatChannel, type: :channel do
 
       it 'transmits error message' do
         perform :send_message, invalid_data
-        
+
         expect(transmissions.last).to include(
           'type' => 'error',
           'message' => 'メッセージの送信に失敗しました'
@@ -138,7 +138,7 @@ RSpec.describe ChatChannel, type: :channel do
 
   describe '#mark_as_read' do
     let(:message) { create(:message, conversation: conversation) }
-    
+
     before do
       subscribe(conversation_id: conversation.id)
     end
@@ -155,7 +155,7 @@ RSpec.describe ChatChannel, type: :channel do
 
     it 'updates message metadata' do
       perform :mark_as_read, { 'message_id' => message.id }
-      
+
       message.reload
       expect(message.metadata['read_by']).to eq(user.id)
       expect(message.metadata['read_at']).to be_present

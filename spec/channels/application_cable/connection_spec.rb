@@ -9,14 +9,8 @@ RSpec.describe ApplicationCable::Connection, type: :channel do
         cookies.encrypted[:user_id] = user.id
       end
 
-      it 'successfully connects' do
+      it 'successfully connects and sets current_user' do
         connect '/cable'
-        expect(connection.current_user).to eq(user)
-      end
-
-      it 'adds user email to logger tags' do
-        connect '/cable'
-        # ログタグは内部で設定されるため、接続が成功することを確認
         expect(connection.current_user).to eq(user)
       end
     end

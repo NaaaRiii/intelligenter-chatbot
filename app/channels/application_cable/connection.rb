@@ -20,7 +20,7 @@ module ApplicationCable
 
     def find_user_from_session
       # セッションからユーザーを取得
-      if session_user_id = cookies.encrypted[:user_id]
+      if (session_user_id = cookies.encrypted[:user_id])
         User.find_by(id: session_user_id)
       end
     end

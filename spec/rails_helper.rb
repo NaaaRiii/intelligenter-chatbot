@@ -33,7 +33,7 @@ end
 RSpec.configure do |config|
   # FactoryBotの設定
   config.include FactoryBot::Syntax::Methods
-  
+
   # ActiveJobテストヘルパー
   config.include ActiveJob::TestHelper, type: :channel
   config.include ActiveJob::TestHelper, type: :job

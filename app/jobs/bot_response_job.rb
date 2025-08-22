@@ -38,15 +38,24 @@ class BotResponseJob < ApplicationJob
 
   # エラー時の処理
   def handle_error(conversation, user_message)
-    # エラー応答を送信
-    error_message = conversation.messages.create!(
-      content: '申し訳ございません。現在システムに問題が発生しています。しばらくしてから再度お試しください。',
-      role: 'assistant',
-      metadata: {
-        error: true,
-        original_message_id: user_message.id
-      }
-    )
+    error_message = nil
+
+    conversation.with_lock do
+      relation = conversation.messages
+                             .where(role: 'assistant')
+                             .where('metadata @> ?', { error: true, original_message_id: user_message.id }.to_json)
+
+      error_message = relation.first
+
+      error_message ||= conversation.messages.create!(
+        content: '申し訳ございません。現在システムに問題が発生しています。しばらくしてから再度お試しください。',
+        role: 'assistant',
+        metadata: {
+          error: true,
+          original_message_id: user_message.id
+        }
+      )
+    end
 
     # WebSocketで通知
     broadcast_error(conversation, error_message)

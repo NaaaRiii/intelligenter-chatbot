@@ -91,12 +91,13 @@ RSpec.describe BotResponseJob, type: :job do
         chat_bot_service = instance_double(ChatBotService, generate_response: nil)
         allow(ChatBotService).to receive(:new).and_return(chat_bot_service)
 
+        # user_messageは既に作成済みなので、アシスタントメッセージの増加を確認
         expect do
           described_class.perform_now(
             conversation_id: conversation.id,
             user_message_id: user_message.id
           )
-        end.to change { conversation.messages.count }.by(1)
+        end.to change { conversation.messages.assistant_messages.count }.by(1)
 
         error_message = conversation.messages.last
         expect(error_message.content).to include('申し訳ございません')

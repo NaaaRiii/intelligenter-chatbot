@@ -14,8 +14,8 @@ class IntentRecognizer
     goodbye: %w[さようなら またね 失礼 終了 バイバイ]
   }.freeze
 
-  # 意図の優先順位
-  INTENT_PRIORITY = %i[complaint question greeting feedback thanks goodbye].freeze
+  # 意図の優先順位（greetingをquestionより優先）
+  INTENT_PRIORITY = %i[complaint greeting question feedback thanks goodbye].freeze
 
   def initialize(message:)
     @message = message.to_s.downcase
@@ -71,7 +71,7 @@ class IntentRecognizer
 
       next if matched_keywords.empty?
 
-      confidence = calculate_confidence(matched_keywords, keywords)
+      confidence = calculate_confidence(intent_type, matched_keywords, keywords)
       intents << {
         type: intent_type,
         confidence: confidence,
@@ -88,7 +88,7 @@ class IntentRecognizer
   end
 
   # 信頼度を計算
-  def calculate_confidence(matched_keywords, all_keywords)
+  def calculate_confidence(intent_type, matched_keywords, all_keywords)
     # マッチした単語数の割合をベースとする
     base_confidence = matched_keywords.size.to_f / [all_keywords.size, 5].min
 
@@ -98,7 +98,12 @@ class IntentRecognizer
     # 複数マッチによるボーナス
     multi_match_bonus = matched_keywords.size > 1 ? 0.3 : 0.1
 
-    [(base_confidence * 0.7 + length_factor * 0.2 + multi_match_bonus), 1.0].min
+    score = ((base_confidence * 0.7) + (length_factor * 0.2) + multi_match_bonus)
+
+    # 挨拶は質問より優先させたいので、軽いボーナスを付与
+    score += 0.3 if intent_type == :greeting
+
+    [score, 1.0].min
   end
 
   # 最適な意図を選択

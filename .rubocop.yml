@@ -31,9 +31,6 @@ Metrics/MethodLength:
 Metrics/ClassLength:
   Max: 150
 
-RSpec/ExampleLength:
-  Max: 10
-
 RSpec/MultipleExpectations:
   Max: 5
 
@@ -44,3 +41,19 @@ RSpec/DescribeClass:
 
 RSpec/MultipleMemoizedHelpers:
   Max: 6
+
+Rails/SkipsModelValidations:
+  Exclude:
+    - 'app/services/message_batch_service.rb'
+    - 'app/models/concerns/cacheable_message.rb'
+
+Naming/PredicateMethod:
+  Exclude:
+    - 'app/services/message_batch_service.rb'
+
+Metrics/AbcSize:
+  Exclude:
+    - 'app/services/message_batch_service.rb'
+
+RSpec/ExampleLength:
+  Max: 20

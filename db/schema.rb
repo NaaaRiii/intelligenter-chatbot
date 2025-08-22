@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_08_21_121140) do
+ActiveRecord::Schema[7.1].define(version: 2025_08_22_001114) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -46,7 +46,12 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_21_121140) do
     t.jsonb "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.index ["conversation_id", "created_at"], name: "index_messages_on_conversation_and_created"
+    t.index ["conversation_id", "role"], name: "index_messages_on_conversation_and_role"
     t.index ["conversation_id"], name: "index_messages_on_conversation_id"
+    t.index ["created_at"], name: "index_messages_on_created_at"
+    t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
+    t.index ["role"], name: "index_messages_on_role"
   end
 
   create_table "users", force: :cascade do |t|

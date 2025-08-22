@@ -1,4 +1,6 @@
 class Message < ApplicationRecord
+  include CacheableMessage
+  
   # 定数
   ROLES = %w[user assistant system].freeze
   MAX_CONTENT_LENGTH = 10_000
@@ -25,6 +27,22 @@ class Message < ApplicationRecord
   scope :assistant_messages, -> { by_role('assistant') }
   scope :recent, -> { order(created_at: :desc) }
   scope :chronological, -> { order(created_at: :asc) }
+  
+  # パフォーマンス最適化スコープ
+  scope :with_conversation, -> { includes(:conversation) }
+  scope :for_conversation, ->(conversation_id) { where(conversation_id: conversation_id) }
+  scope :created_after, ->(date) { where('created_at > ?', date) }
+  scope :created_before, ->(date) { where('created_at < ?', date) }
+  scope :created_between, ->(start_date, end_date) { where(created_at: start_date..end_date) }
+  scope :latest_n, ->(n) { order(created_at: :desc).limit(n) }
+  scope :paginated, ->(page, per_page = 50) { offset((page - 1) * per_page).limit(per_page) }
+  
+  # メタデータ検索用スコープ（PostgreSQL JSONB）
+  scope :with_metadata_key, ->(key) { where("metadata ? :key", key: key) }
+  scope :with_metadata_value, ->(key, value) { where("metadata @> ?", { key => value }.to_json) }
+  
+  # バッチ取得用スコープ
+  scope :in_batches_of, ->(size) { find_in_batches(batch_size: size) }
 
   # メソッド
   def user?

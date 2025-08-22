@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   # チャット画面
   get 'chat', to: 'chat#index'
   get 'chat/:conversation_id', to: 'chat#index', as: :conversation_chat
+  post 'chat', to: 'chat#create_message'
   
   # RESTful API v1
   namespace :api do

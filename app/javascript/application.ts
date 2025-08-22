@@ -25,8 +25,8 @@ try {
     push(sub: any) {
       const wrapped = {
         identifier: typeof sub.identifier === 'string' ? sub.identifier : JSON.stringify(sub.identifier || {}),
-        received: typeof sub.received === 'function' ? sub.received.bind(sub) : (_d: any) => {},
-        perform: typeof sub.perform === 'function' ? sub.perform.bind(sub) : (_a: string, _p?: any) => {}
+        received: typeof sub.received === 'function' ? sub.received.bind(sub) : (_d: any) => { void 0 },
+        perform: typeof sub.perform === 'function' ? sub.perform.bind(sub) : (_a: string, _p?: any) => { void 0 }
       }
       subs.push(wrapped)
     },
@@ -34,11 +34,11 @@ try {
       for (const s of subs) {
         try {
           if (fn(s)) return s
-        } catch (_) {}
+        } catch { void 0 }
       }
       // フォールバック: 最後のsubscriptionかダミー
       const last = subs[subs.length - 1]
-      return last || { received: (_d: any) => {}, perform: (_a: string, _p?: any) => {} }
+      return last || { received: (_d: any) => { void 0 }, perform: (_a: string, _p?: any) => { void 0 } }
     }
   }
   w.App.cable.subscriptions = wrapper
@@ -53,9 +53,7 @@ try {
       window.dispatchEvent(new CustomEvent('appCableReconnected'))
     }
   }
-} catch (e) {
-  // noop
-}
+} catch { void 0 }
 
 if (process.env.NODE_ENV === "development") {
   // eslint-disable-next-line no-console

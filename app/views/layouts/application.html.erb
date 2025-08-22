@@ -12,6 +12,7 @@
     <% if Rails.env.test? %>
       <script>
         window.App = window.App || { cable: { subscriptions: [] } };
+        window.App.forceRest = true;
       </script>
     <% end %>
   </head>

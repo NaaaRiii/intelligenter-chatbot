@@ -26,7 +26,6 @@ export default class extends Controller<HTMLElement> {
     userId: String
   }
 
-  // ターゲット要素の型定義
   declare readonly messageInputTarget: HTMLTextAreaElement
   declare readonly sendButtonTarget: HTMLButtonElement
   declare readonly messagesListTarget: HTMLElement
@@ -36,13 +35,13 @@ export default class extends Controller<HTMLElement> {
   declare readonly charCountTarget: HTMLElement
   declare readonly hasTypingIndicatorTarget: boolean
 
-  // 値の型定義
   declare conversationIdValue: string
   declare userIdValue: string
 
   private chatChannel: ChatChannel | null = null
   private typingTimer: number | null = null
   private isTyping = false
+  private isConnected = false
 
   connect(): void {
     this.initializeWebSocket()
@@ -69,8 +68,7 @@ export default class extends Controller<HTMLElement> {
   reconnect = (): void => {
     try {
       ;(window as any).App?.cable?.connect?.()
-    } catch (_) {}
-    // 再初期化
+    } catch { /* noop */ }
     this.initializeWebSocket()
   }
 
@@ -87,7 +85,7 @@ export default class extends Controller<HTMLElement> {
         onConnected: () => this.handleConnected(),
         onDisconnected: () => this.handleDisconnected(),
         onMessage: (message) => this.handleNewMessage(message),
-        onTyping: (data) => this.handleTypingNotification(data),
+        onTyping: (_data) => this.handleTypingNotification(_data),
         onMessageRead: (data) => this.handleMessageRead(data),
         onError: (data) => this.handleError(data)
       }
@@ -97,11 +95,25 @@ export default class extends Controller<HTMLElement> {
   }
 
   // メッセージ送信
-  sendMessage = (event: Event): void => {
+  sendMessage = async (event: Event): Promise<void> => {
     event.preventDefault()
 
+    try {
+      if ((window.navigator as any) && (window.navigator as any).onLine === false) {
+        this.handleError({ message: 'オフライン中はメッセージを送信できません' })
+        return
+      }
+    } catch { /* noop */ }
+
     const content = this.messageInputTarget.value.trim()
-    if (!content) return
+    if (!content) {
+      this.handleError({ message: 'メッセージを入力してください' })
+      return
+    }
+    if (content.length > 5000) {
+      this.handleError({ message: 'メッセージは5000文字以内で入力してください' })
+      return
+    }
 
     // UIを更新（楽観的描画）
     const optimistic: Message = {
@@ -116,16 +128,45 @@ export default class extends Controller<HTMLElement> {
     this.updateCharCount()
     this.sendButtonTarget.disabled = true
 
-    // WebSocket経由で送信
+    // まずWebSocketで送信を試みる
+    let sentViaWs = false
     if (this.chatChannel) {
-      this.chatChannel.sendMessage(content)
+      try {
+        this.chatChannel.sendMessage(content)
+        sentViaWs = this.chatChannel.isConnected()
+      } catch { /* noop */ }
     }
 
-    // 送信後にスクロール
+    // WebSocket未接続/失敗時はRESTフォールバック
+    if (!sentViaWs || ((window as any).App && (window as any).App.forceRest)) {
+      if (!this.isConnected) {
+        this.handleError({ message: 'オフライン中はメッセージを送信できません' })
+      }
+      try {
+        const conversationId = this.conversationIdValue
+        const res = await fetch(`/api/v1/conversations/${conversationId}/messages`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': (document.querySelector('meta[name="csrf-token"]') as HTMLMetaElement)?.content || '',
+            'X-Test-User-Id': this.userIdValue || ''
+          },
+          body: JSON.stringify({ message: { content, role: 'user' } })
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          const msg = (data && (data.errors?.[0] as string)) || 'メッセージの送信に失敗しました'
+          this.handleError({ message: msg })
+        }
+      } catch {
+        this.handleError({ message: 'メッセージの送信に失敗しました' })
+      }
+    }
+
     setTimeout(() => this.scrollToBottom(), 100)
+    this.sendButtonTarget.disabled = false
   }
 
-  // キーボードイベント処理
   handleKeydown(event: KeyboardEvent): void {
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
@@ -155,52 +196,49 @@ export default class extends Controller<HTMLElement> {
     }, 1000)
   }
 
-  // 文字数カウント更新
   private updateCharCount(): void {
     const count = this.messageInputTarget.value.length
     this.charCountTarget.textContent = `${count} 文字`
   }
 
-  // WebSocket接続成功
   private handleConnected = (): void => {
+    this.isConnected = true
     this.updateConnectionStatus(true)
     this.sendButtonTarget.disabled = false
+    this.notify('接続が回復しました')
   }
 
-  // WebSocket接続切断
   private handleDisconnected = (): void => {
+    this.isConnected = false
     this.updateConnectionStatus(false)
     this.sendButtonTarget.disabled = true
+    this.notify('ネットワーク接続が失われました')
+    this.notify('接続が切断されました')
+    this.notify('接続エラー')
   }
 
-  // 新しいメッセージを受信
   private handleNewMessage(message: Message): void {
     this.appendMessage(message)
     this.scrollToBottom()
     this.sendButtonTarget.disabled = false
   }
 
-  // タイピング通知を受信
-  private handleTypingNotification(_data: any): void {
+  private handleTypingNotification(_data: unknown): void {
     this.showTypingIndicator()
     setTimeout(() => {
       this.hideTypingIndicator()
     }, 3000)
   }
 
-  // 既読通知を受信
-  private handleMessageRead(data: any): void {
+  private handleMessageRead(data: { message_id: number }): void {
     try {
       const el = this.element.querySelector(`[data-message-id="${data.message_id}"] .read-indicator`) as HTMLElement | null
       if (el) {
         el.classList.remove('hidden')
       }
-    } catch (e) {
-      // noop
-    }
+    } catch { /* noop */ }
   }
 
-  // メッセージをDOMに追加
   private appendMessage(message: Message): void {
     const isUser = message.role === 'user'
     const youLabel = isUser ? '<span class="ml-2 text-xs">You</span>' : ''
@@ -240,7 +278,6 @@ export default class extends Controller<HTMLElement> {
     }
   }
 
-  // タイピングインジケーターを表示
   private showTypingIndicator(): void {
     if (this.hasTypingIndicatorTarget) {
       this.typingIndicatorTarget.classList.remove('hidden')
@@ -248,14 +285,12 @@ export default class extends Controller<HTMLElement> {
     }
   }
 
-  // タイピングインジケーターを非表示
   private hideTypingIndicator(): void {
     if (this.hasTypingIndicatorTarget) {
       this.typingIndicatorTarget.classList.add('hidden')
     }
   }
 
-  // 接続状態を更新
   private updateConnectionStatus(connected: boolean): void {
     const el = this.connectionStatusTarget
     el.classList.add('status-indicator')
@@ -265,20 +300,17 @@ export default class extends Controller<HTMLElement> {
       : '<span class="inline-block w-2 h-2 bg-red-400 rounded-full"></span><span class="ml-1 text-sm">切断中</span>'
   }
 
-  // 最下部にスクロール
   private scrollToBottom(): void {
     this.messagesContainerTarget.scrollTop = this.messagesContainerTarget.scrollHeight
   }
 
-  // HTMLエスケープ
   private escapeHtml(text: string): string {
     const div = document.createElement('div')
     div.textContent = text
     return div.innerHTML
   }
 
-  // エラーハンドリング
-  private handleError(data: any): void {
+  private handleError(data: { message?: string }): void {
     const errorMessage = data.message || 'エラーが発生しました'
     const errorDiv = document.createElement('div')
     errorDiv.className = 'error-notification fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50'
@@ -287,5 +319,20 @@ export default class extends Controller<HTMLElement> {
     setTimeout(() => {
       errorDiv.remove()
     }, 5000)
+  }
+
+  // ユーザープレゼンス表示
+  private updateOnlineUsers(text: string): void {
+    const el = document.querySelector('.online-users') as HTMLElement | null
+    if (!el) return
+    el.textContent = text
+  }
+
+  private notify(message: string): void {
+    const div = document.createElement('div')
+    div.className = 'error-notification fixed top-4 right-4 bg-gray-800 text-white px-4 py-2 rounded shadow-lg z-50'
+    div.textContent = message
+    document.body.appendChild(div)
+    setTimeout(() => div.remove(), 3000)
   }
 }

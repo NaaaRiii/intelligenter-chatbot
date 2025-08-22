@@ -45,10 +45,13 @@ export default class extends Controller<HTMLElement> {
   private isTyping = false
 
   connect(): void {
-    console.log('Chat controller connected')
     this.initializeWebSocket()
     this.scrollToBottom()
     this.updateCharCount()
+
+    // App.cableのカスタムイベントを監視
+    window.addEventListener('appCableDisconnected', this.handleDisconnected)
+    window.addEventListener('appCableReconnected', this.handleConnected)
   }
 
   disconnect(): void {
@@ -58,12 +61,22 @@ export default class extends Controller<HTMLElement> {
     if (this.typingTimer) {
       clearTimeout(this.typingTimer)
     }
+    window.removeEventListener('appCableDisconnected', this.handleDisconnected)
+    window.removeEventListener('appCableReconnected', this.handleConnected)
+  }
+
+  // 再接続ボタン
+  reconnect = (): void => {
+    try {
+      ;(window as any).App?.cable?.connect?.()
+    } catch (_) {}
+    // 再初期化
+    this.initializeWebSocket()
   }
 
   // WebSocket接続を初期化
   private initializeWebSocket(): void {
     if (!this.conversationIdValue) {
-      console.error('Conversation ID is required')
       return
     }
 
@@ -84,13 +97,21 @@ export default class extends Controller<HTMLElement> {
   }
 
   // メッセージ送信
-  sendMessage(event: Event): void {
+  sendMessage = (event: Event): void => {
     event.preventDefault()
 
     const content = this.messageInputTarget.value.trim()
     if (!content) return
 
-    // UIを更新
+    // UIを更新（楽観的描画）
+    const optimistic: Message = {
+      id: Date.now(),
+      content,
+      role: 'user',
+      created_at: new Date().toISOString()
+    }
+    this.appendMessage(optimistic)
+
     this.messageInputTarget.value = ''
     this.updateCharCount()
     this.sendButtonTarget.disabled = true
@@ -106,14 +127,12 @@ export default class extends Controller<HTMLElement> {
 
   // キーボードイベント処理
   handleKeydown(event: KeyboardEvent): void {
-    // Shift + Enter で改行、Enter のみで送信
     if (event.key === 'Enter' && !event.shiftKey) {
       event.preventDefault()
       this.sendMessage(event)
     }
   }
 
-  // タイピング通知を送信
   handleTyping(): void {
     this.updateCharCount()
 
@@ -124,7 +143,6 @@ export default class extends Controller<HTMLElement> {
       }
     }
 
-    // タイピング停止タイマーをリセット
     if (this.typingTimer) {
       clearTimeout(this.typingTimer)
     }
@@ -144,15 +162,13 @@ export default class extends Controller<HTMLElement> {
   }
 
   // WebSocket接続成功
-  private handleConnected(): void {
-    console.log('WebSocket connected')
+  private handleConnected = (): void => {
     this.updateConnectionStatus(true)
     this.sendButtonTarget.disabled = false
   }
 
   // WebSocket接続切断
-  private handleDisconnected(): void {
-    console.log('WebSocket disconnected')
+  private handleDisconnected = (): void => {
     this.updateConnectionStatus(false)
     this.sendButtonTarget.disabled = true
   }
@@ -188,10 +204,12 @@ export default class extends Controller<HTMLElement> {
   private appendMessage(message: Message): void {
     const isUser = message.role === 'user'
     const youLabel = isUser ? '<span class="ml-2 text-xs">You</span>' : ''
+    const botHeader = isUser ? '' : '<div class="assistant-header"><span class="assistant-name">Bot</span></div>'
     const messageHtml = `
       <div class="message message-${message.role} ${isUser ? 'user-message' : 'assistant-message'} mb-4" data-message-id="${message.id}">
         <div class="inline-block max-w-2xl">
           <div class="message-bubble ${isUser ? 'bg-blue-600 text-white' : 'bg-white'} px-4 py-3 rounded-lg shadow-sm">
+            ${botHeader}
             <div class="message-content">
               ${this.escapeHtml(message.content).replace(/\n/g, '<br>')}
             </div>
@@ -200,13 +218,12 @@ export default class extends Controller<HTMLElement> {
               ${youLabel}
             </div>
             <span class="read-indicator hidden">既読</span>
-            ${isUser ? '<div class="message-options"><button type="button" data-action="click->chat#deleteMessage">削除</button></div>' : ''}
+            ${isUser ? '<div class="message-options"><button type="button" data-action="click->chat#deleteMessage">削除を確認</button></div>' : ''}
           </div>
         </div>
       </div>
     `
 
-    // タイピングインジケーターの前に挿入
     if (this.hasTypingIndicatorTarget) {
       this.typingIndicatorTarget.insertAdjacentHTML('beforebegin', messageHtml)
     } else {
@@ -237,17 +254,12 @@ export default class extends Controller<HTMLElement> {
 
   // 接続状態を更新
   private updateConnectionStatus(connected: boolean): void {
-    if (connected) {
-      this.connectionStatusTarget.innerHTML = `
-        <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-        <span class="ml-1 text-sm">接続済み</span>
-      `
-    } else {
-      this.connectionStatusTarget.innerHTML = `
-        <span class="inline-block w-2 h-2 bg-red-400 rounded-full"></span>
-        <span class="ml-1 text-sm">切断中</span>
-      `
-    }
+    const el = this.connectionStatusTarget
+    el.classList.add('status-indicator')
+    el.classList.toggle('connected', connected)
+    el.innerHTML = connected
+      ? '<span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span><span class="ml-1 text-sm">接続済み</span>'
+      : '<span class="inline-block w-2 h-2 bg-red-400 rounded-full"></span><span class="ml-1 text-sm">切断中</span>'
   }
 
   // 最下部にスクロール
@@ -264,15 +276,11 @@ export default class extends Controller<HTMLElement> {
 
   // エラーハンドリング
   private handleError(data: any): void {
-    console.error('Chat error:', data)
     const errorMessage = data.message || 'エラーが発生しました'
-    
-    // エラーメッセージを表示
     const errorDiv = document.createElement('div')
     errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50'
     errorDiv.textContent = errorMessage
     document.body.appendChild(errorDiv)
-    
     setTimeout(() => {
       errorDiv.remove()
     }, 5000)

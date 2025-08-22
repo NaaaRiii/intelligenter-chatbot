@@ -42,21 +42,18 @@ export class ChatChannel {
 
     const callbacks = {
       connected: () => {
-        console.log(`Connected to ChatChannel for conversation ${this.conversationId}`)
         this.callbacks.onConnected?.()
       },
 
       disconnected: () => {
-        console.log(`Disconnected from ChatChannel for conversation ${this.conversationId}`)
         this.callbacks.onDisconnected?.()
       },
 
       received: (data: any) => {
-        console.log('Received data:', data)
-        
         switch (data.type) {
           case 'new_message':
             this.callbacks.onMessage?.(data.message)
+            this.appendToDom(data.message)
             break
           case 'typing':
             this.callbacks.onTyping?.(data)
@@ -70,16 +67,25 @@ export class ChatChannel {
           case 'error':
             this.callbacks.onError?.(data)
             break
+          case 'bot_error':
+            if (data.message) {
+              this.callbacks.onMessage?.(data.message)
+              this.appendToDom(data.message)
+            }
+            break
           case 'message_read':
             this.callbacks.onMessageRead?.(data)
             break
           case 'batch_messages':
             if (Array.isArray(data.messages)) {
-              data.messages.forEach((m: MessageData) => this.callbacks.onMessage?.(m))
+              data.messages.forEach((m: MessageData) => {
+                this.callbacks.onMessage?.(m)
+                this.appendToDom(m)
+              })
             }
             break
           default:
-            console.warn('Unknown message type:', data.type)
+            // noop
         }
       }
     }
@@ -95,8 +101,7 @@ export class ChatChannel {
     try {
       const w = window as any
       if (w.App && w.App.cable && w.App.cable.subscriptions && typeof w.App.cable.subscriptions.push === 'function') {
-        // identifier互換: find内でJSON.stringifyされた文字列にincludes('ChatChannel')される
-        ;(this.subscription as any).identifier = { channel: 'ChatChannel', conversation_id: this.conversationId }
+        ;(this.subscription as any).identifier = JSON.stringify({ channel: 'ChatChannel', conversation_id: this.conversationId })
         w.App.cable.subscriptions.push(this.subscription)
       }
     } catch (e) {
@@ -112,32 +117,44 @@ export class ChatChannel {
   }
 
   sendMessage(content: string): void {
-    if (!this.subscription) {
-      console.error('Not connected to chat channel')
-      return
-    }
-
+    if (!this.subscription) return
     this.subscription.perform('send_message', { content })
   }
 
   sendTypingNotification(isTyping: boolean): void {
-    if (!this.subscription) {
-      return
-    }
-
+    if (!this.subscription) return
     this.subscription.perform('typing', { is_typing: isTyping })
   }
 
   markAsRead(messageId: number): void {
-    if (!this.subscription) {
-      return
-    }
-
+    if (!this.subscription) return
     this.subscription.perform('mark_as_read', { message_id: messageId })
   }
 
   isConnected(): boolean {
     return this.subscription !== null
+  }
+
+  private appendToDom(message: MessageData): void {
+    try {
+      const list = document.querySelector('[data-chat-target="messagesList"]') as HTMLElement | null
+      if (!list) return
+      const isUser = message.role === 'user'
+      const wrapper = document.createElement('div')
+      wrapper.className = `message message-${message.role} ${isUser ? 'user-message' : 'assistant-message'} mb-4`
+      wrapper.dataset.messageId = String(message.id)
+      wrapper.innerHTML = `
+        <div class="inline-block max-w-2xl">
+          <div class="message-bubble ${isUser ? 'bg-blue-600 text-white' : 'bg-white'} px-4 py-3 rounded-lg shadow-sm">
+            ${isUser ? '' : '<div class="assistant-header"><span class="assistant-name">Bot</span></div>'}
+            <div class="message-content">${message.content}</div>
+            <div class="timestamp message-meta text-xs ${isUser ? 'text-blue-100' : 'text-gray-500'} mt-1">${new Date(message.created_at).toLocaleTimeString('ja-JP', {hour: '2-digit', minute: '2-digit'})}${isUser ? '<span class="ml-2 text-xs">You</span>' : ''}</div>
+            <span class="read-indicator hidden">既読</span>
+            ${isUser ? '<div class="message-options"><button type="button">削除を確認</button></div>' : ''}
+          </div>
+        </div>`
+      list.appendChild(wrapper)
+    } catch (_) {}
   }
 }
 

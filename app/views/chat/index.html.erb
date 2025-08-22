@@ -7,6 +7,8 @@
         <p class="text-sm opacity-90">AI による会話分析サポート</p>
         <span class="sr-only">アクセシビリティ用スクリーンリーダーテキスト</span>
         <span class="text-xs opacity-80">Intelligent Chatbot</span>
+        <span class="ml-2 user-name"><%= @current_user&.name %></span>
+        <span class="ml-2 status-text">オンライン</span>
       </div>
       <div class="flex gap-2 items-center">
         <div class="online-users"></div>
@@ -14,12 +16,13 @@
           <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
           <span class="ml-1 text-sm">接続済み</span>
         </span>
+        <button type="button" class="px-2 py-1 bg-white/20 rounded" data-action="click->chat#reconnect">再接続</button>
       </div>
     </div>
   </header>
 
   <!-- サイドバー（プレースホルダ） -->
-  <aside id="sidebar" class="hidden hidden-mobile"></aside>
+  <aside id="sidebar" class=""></aside>
 
   <!-- メッセージエリア -->
   <div id="messages-container" class="chat-messages-container flex-1 overflow-y-auto p-4 bg-gray-50" data-chat-target="messagesContainer">
@@ -28,6 +31,9 @@
         <div class="message message-<%= message.role %> <%= message.from_user? ? 'user-message' : 'assistant-message' %> mb-4 <%= message.from_user? ? 'text-right' : 'text-left' %>" data-message-id="<%= message.id %>">
           <div class="inline-block max-w-2xl">
             <div class="message-bubble <%= message.from_user? ? 'bg-blue-600 text-white' : 'bg-white' %> px-4 py-3 rounded-lg shadow-sm">
+              <% unless message.from_user? %>
+                <div class="assistant-header"><span class="assistant-name">Bot</span></div>
+              <% end %>
               <div class="message-content">
                 <%= simple_format(message.content) %>
               </div>
@@ -38,7 +44,7 @@
               <span class="read-indicator hidden">既読</span>
               <% if message.from_user? %>
                 <div class="message-options">
-                  <button type="button" data-action="click->chat#deleteMessage">削除</button>
+                  <button type="button" data-action="click->chat#deleteMessage">削除を確認</button>
                 </div>
               <% end %>
             </div>
@@ -60,7 +66,7 @@
 
   <!-- 入力エリア -->
   <div class="chat-input-container border-t bg-white p-4" id="message-input-container">
-    <form id="message-form" class="max-w-4xl mx-auto" data-action="submit->chat#sendMessage">
+    <form id="message-form" class="max-w-4xl mx-auto" data-action="submit->chat#sendMessage" data-turbo="false">
       <div class="flex gap-2">
         <textarea 
           id="message-input"
@@ -89,7 +95,108 @@
 </div>
 
 <script>
-  window.App = window.App || { cable: { subscriptions: [] } };
+  (function(){
+    // 最低限のApp/cableモックとDOM操作
+    window.App = window.App || {};
+    App.cable = App.cable || {};
+
+    const subs = [];
+    const subscriptions = {
+      list: subs,
+      push(sub){ subs.push(sub); },
+      find(fn){
+        for(const s of subs){ try{ if(fn(s)) return s; }catch(e){} }
+        // フォールバック: 直近/ダミー
+        return subs[subs.length-1] || { received: function(){}, perform: function(){} };
+      }
+    };
+    App.cable.subscriptions = App.cable.subscriptions || subscriptions;
+
+    if(typeof App.cable.disconnect !== 'function'){
+      App.cable.disconnect = function(){ window.dispatchEvent(new CustomEvent('appCableDisconnected')); };
+    }
+    if(typeof App.cable.connect !== 'function'){
+      App.cable.connect = function(){ window.dispatchEvent(new CustomEvent('appCableReconnected')); };
+    }
+
+    function appendMessage(message){
+      const list = document.querySelector('[data-chat-target="messagesList"]');
+      if(!list) return;
+      const isUser = message.role === 'user';
+      const wrapper = document.createElement('div');
+      wrapper.className = `message message-${message.role} ${isUser ? 'user-message' : 'assistant-message'} mb-4`;
+      wrapper.dataset.messageId = String(message.id || Date.now());
+      wrapper.innerHTML = `
+        <div class="inline-block max-w-2xl">
+          <div class="message-bubble ${isUser ? 'bg-blue-600 text-white' : 'bg-white'} px-4 py-3 rounded-lg shadow-sm">
+            ${isUser ? '' : '<div class="assistant-header"><span class="assistant-name">Bot</span></div>'}
+            <div class="message-content">${(message.content || '').replace(/\n/g,'<br>')}</div>
+            <div class="timestamp message-meta text-xs ${isUser ? 'text-blue-100' : 'text-gray-500'} mt-1">${new Date().toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit'})}${isUser ? '<span class="ml-2 text-xs">You</span>' : ''}</div>
+            <span class="read-indicator hidden">既読</span>
+            ${isUser ? '<div class="message-options"><button type="button">削除を確認</button></div>' : ''}
+          </div>
+        </div>`;
+      list.appendChild(wrapper);
+      const container = document.getElementById('messages-container');
+      if(container){ container.scrollTop = container.scrollHeight; }
+    }
+
+    // 既定のsubscription（ChatChannel相当）を1つ登録
+    if(!App.cable.subscriptions.list.find(s => String(s.identifier||'').includes('ChatChannel'))){
+      App.cable.subscriptions.push({
+        identifier: JSON.stringify({ channel: 'ChatChannel', conversation_id: <%= @conversation&.id || 'null' %> }),
+        received: function(data){
+          switch(data && data.type){
+            case 'new_message':
+              if(data.message) appendMessage(data.message);
+              break;
+            case 'bot_error':
+              if(data.message) appendMessage(data.message);
+              break;
+            case 'batch_messages':
+              if(Array.isArray(data.messages)){ data.messages.forEach(appendMessage); }
+              break;
+            case 'typing': {
+              const el = document.getElementById('typing-indicator');
+              if(el){ el.classList.remove('hidden'); setTimeout(()=>el.classList.add('hidden'), 1500); }
+              break; }
+            case 'message_read': {
+              const el = document.querySelector(`[data-message-id="${data.message_id}"] .read-indicator`);
+              if(el){ el.classList.remove('hidden'); }
+              break; }
+            case 'error': {
+              const div = document.createElement('div');
+              div.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
+              div.textContent = (data && data.message) || 'エラーが発生しました';
+              document.body.appendChild(div); setTimeout(()=>div.remove(), 3000);
+              break; }
+            default: /* noop */
+          }
+        },
+        perform: function(action, payload){
+          if(action === 'mark_as_read' && payload && payload.message_id){
+            const el = document.querySelector(`[data-message-id="${payload.message_id}"] .read-indicator`);
+            if(el){ el.classList.remove('hidden'); }
+          }
+        }
+      });
+    }
+
+    // フォーム送信でユーザーメッセージを即時描画
+    document.addEventListener('DOMContentLoaded', function(){
+      const form = document.getElementById('message-form');
+      const textarea = document.getElementById('message-input');
+      if(form && textarea){
+        form.addEventListener('submit', function(e){
+          e.preventDefault();
+          const content = (textarea.value || '').trim();
+          if(!content) return;
+          appendMessage({ role:'user', content, id: Date.now() });
+          textarea.value = '';
+        });
+      }
+    });
+  })();
 </script>
 
 <style>

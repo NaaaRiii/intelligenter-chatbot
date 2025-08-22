@@ -3,15 +3,18 @@
 require 'database_cleaner/active_record'
 
 RSpec.configure do |config|
-  # System specsではトランザクションを使わない
-  config.use_transactional_fixtures = false
-
   config.before(:suite) do
-    DatabaseCleaner.clean_with(:truncation)
+    # テスト開始前にデータベースをクリーンにする
+    DatabaseCleaner.clean_with(:deletion)
   end
 
   config.before do |example|
-    DatabaseCleaner.strategy = example.metadata[:js] ? :truncation : :transaction
+    # System specs以外はトランザクションを使用
+    if example.metadata[:type] == :system || example.metadata[:js]
+      DatabaseCleaner.strategy = :deletion
+    else
+      DatabaseCleaner.strategy = :transaction
+    end
     DatabaseCleaner.start
   end
 
@@ -19,7 +22,8 @@ RSpec.configure do |config|
     DatabaseCleaner.clean
   end
 
-  config.before(:each, type: :system) do
-    DatabaseCleaner.strategy = :truncation
+  config.append_after do
+    # 各テスト後にデータベース接続をリセット
+    ActiveRecord::Base.connection_pool.disconnect!
   end
 end

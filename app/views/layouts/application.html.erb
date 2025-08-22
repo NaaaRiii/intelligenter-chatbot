@@ -8,6 +8,12 @@
 
     <%= vite_client_tag %>
     <%= vite_javascript_tag 'application' %>
+
+    <% if Rails.env.test? %>
+      <script>
+        window.App = window.App || { cable: { subscriptions: [] } };
+      </script>
+    <% end %>
   </head>
 
   <body>

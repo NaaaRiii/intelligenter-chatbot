@@ -50,6 +50,7 @@ Rails/SkipsModelValidations:
 Naming/PredicateMethod:
   Exclude:
     - 'app/services/message_batch_service.rb'
+    - 'app/controllers/application_controller.rb'
 
 Metrics/AbcSize:
   Exclude:
@@ -57,3 +58,19 @@ Metrics/AbcSize:
 
 RSpec/ExampleLength:
   Max: 20
+
+RSpec/AnyInstance:
+  Exclude:
+    - 'spec/system/**/*'
+
+RSpec/LetSetup:
+  Exclude:
+    - 'spec/system/**/*'
+
+RSpec/IndexedLet:
+  Enabled: false
+
+Layout/LineLength:
+  Max: 120
+  Exclude:
+    - 'spec/system/**/*'

@@ -49,6 +49,17 @@ class Conversation < ApplicationRecord
     )
   end
 
+  # ボット機能が有効かチェック
+  def bot_enabled?
+    # metadataまたは設定に基づいて判定
+    metadata&.dig('bot_enabled') != false
+  end
+
+  # 最後のユーザーメッセージを取得
+  def last_user_message
+    messages.user_messages.latest_n(1).first
+  end
+
   private
 
   def generate_session_id

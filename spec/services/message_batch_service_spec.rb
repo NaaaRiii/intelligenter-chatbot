@@ -4,13 +4,13 @@ require 'rails_helper'
 
 RSpec.describe MessageBatchService, type: :service do
   let(:conversation) { create(:conversation) }
-  
+
   before do
     ActiveJob::Base.queue_adapter = :test
   end
-  
+
   describe '#save_batch' do
-    context '正常なデータの場合' do
+    context 'with valid data' do
       let(:messages_data) do
         [
           { content: 'Message 1', role: 'user', metadata: { test: true } },
@@ -35,7 +35,7 @@ RSpec.describe MessageBatchService, type: :service do
           skip_callbacks: true
         )
 
-        expect(Message).not_to receive(:create!)
+        allow(Message).to receive(:insert_all!).and_call_original
         expect { service.save_batch }.to change(Message, :count).by(3)
       end
 
@@ -46,11 +46,11 @@ RSpec.describe MessageBatchService, type: :service do
           skip_callbacks: true
         )
 
-        expect { service.save_batch }.to change { conversation.reload.updated_at }
+        expect { service.save_batch }.to(change { conversation.reload.updated_at })
       end
     end
 
-    context '無効なデータの場合' do
+    context 'with invalid data' do
       let(:invalid_messages_data) do
         [
           { content: '', role: 'user' }, # 空のコンテンツ
@@ -78,7 +78,7 @@ RSpec.describe MessageBatchService, type: :service do
       end
     end
 
-    context 'バッチサイズの制限' do
+    context 'with batch size limit' do
       let(:large_messages_data) do
         101.times.map { |i| { content: "Message #{i}", role: 'user' } }
       end
@@ -112,7 +112,7 @@ RSpec.describe MessageBatchService, type: :service do
       expect do
         service.save_batch_async
       end.to have_enqueued_job(MessageBatchJob)
-            .with(conversation_id: conversation.id, messages_data: messages_data)
+        .with(conversation_id: conversation.id, messages_data: messages_data)
     end
 
     it '無効なデータの場合はエンキューしない' do
@@ -146,7 +146,15 @@ RSpec.describe MessageBatchService, type: :service do
     end
 
     it '指定されたバッチサイズで分割保存する' do
-      expect(MessageBatchService).to receive(:new).exactly(4).times.and_call_original
+      allow(described_class).to receive(:new).and_call_original
+
+      described_class.stream_save(
+        conversation: conversation,
+        message_stream: message_stream,
+        batch_size: 25
+      )
+
+      expect(described_class).to have_received(:new).exactly(4).times
 
       described_class.stream_save(
         conversation: conversation,

@@ -73,6 +73,11 @@ RSpec.describe 'Message Performance', type: :model do
     end
 
     it 'キャッシュからの取得が高速' do
+      # CIではtest環境がNullStoreのため、この例に限りMemoryStoreを使用
+      memory_store = ActiveSupport::Cache::MemoryStore.new
+      allow(Rails).to receive(:cache).and_return(memory_store)
+      Rails.cache.clear
+
       # 初回（キャッシュなし）
       first_time = Benchmark.realtime do
         Message.cached_for_conversation(conversation.id, 30)

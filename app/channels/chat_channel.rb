@@ -119,10 +119,23 @@ class ChatChannel < ApplicationCable::Channel
   def handle_message_save(message)
     if message.save
       broadcast_message(message)
-      ProcessAiResponseJob.perform_later(message.id) if should_process_ai_response?
+      trigger_bot_response(message) if should_trigger_bot_response?(message)
     else
       transmit_error(message)
     end
+  end
+
+  def should_trigger_bot_response?(message)
+    # ユーザーメッセージの場合のみボット応答をトリガー
+    message.role == 'user' && @conversation.bot_enabled?
+  end
+
+  def trigger_bot_response(message)
+    # ボット応答を非同期で生成
+    BotResponseJob.perform_later(
+      conversation_id: @conversation.id,
+      user_message_id: message.id
+    )
   end
 
   def transmit_error(message)

@@ -40,50 +40,68 @@ export class ChatChannel {
       return
     }
 
+    const callbacks = {
+      connected: () => {
+        console.log(`Connected to ChatChannel for conversation ${this.conversationId}`)
+        this.callbacks.onConnected?.()
+      },
+
+      disconnected: () => {
+        console.log(`Disconnected from ChatChannel for conversation ${this.conversationId}`)
+        this.callbacks.onDisconnected?.()
+      },
+
+      received: (data: any) => {
+        console.log('Received data:', data)
+        
+        switch (data.type) {
+          case 'new_message':
+            this.callbacks.onMessage?.(data.message)
+            break
+          case 'typing':
+            this.callbacks.onTyping?.(data)
+            break
+          case 'user_connected':
+            this.callbacks.onUserConnected?.(data)
+            break
+          case 'user_disconnected':
+            this.callbacks.onUserDisconnected?.(data)
+            break
+          case 'error':
+            this.callbacks.onError?.(data)
+            break
+          case 'message_read':
+            this.callbacks.onMessageRead?.(data)
+            break
+          case 'batch_messages':
+            if (Array.isArray(data.messages)) {
+              data.messages.forEach((m: MessageData) => this.callbacks.onMessage?.(m))
+            }
+            break
+          default:
+            console.warn('Unknown message type:', data.type)
+        }
+      }
+    }
+
     this.subscription = consumer.subscriptions.create(
       {
         channel: 'ChatChannel',
         conversation_id: this.conversationId
       },
-      {
-        connected: () => {
-          console.log(`Connected to ChatChannel for conversation ${this.conversationId}`)
-          this.callbacks.onConnected?.()
-        },
-
-        disconnected: () => {
-          console.log(`Disconnected from ChatChannel for conversation ${this.conversationId}`)
-          this.callbacks.onDisconnected?.()
-        },
-
-        received: (data: any) => {
-          console.log('Received data:', data)
-          
-          switch (data.type) {
-            case 'new_message':
-              this.callbacks.onMessage?.(data.message)
-              break
-            case 'typing':
-              this.callbacks.onTyping?.(data)
-              break
-            case 'user_connected':
-              this.callbacks.onUserConnected?.(data)
-              break
-            case 'user_disconnected':
-              this.callbacks.onUserDisconnected?.(data)
-              break
-            case 'error':
-              this.callbacks.onError?.(data)
-              break
-            case 'message_read':
-              this.callbacks.onMessageRead?.(data)
-              break
-            default:
-              console.warn('Unknown message type:', data.type)
-          }
-        }
-      }
+      callbacks
     )
+
+    try {
+      const w = window as any
+      if (w.App && w.App.cable && w.App.cable.subscriptions && typeof w.App.cable.subscriptions.push === 'function') {
+        // identifier互換: find内でJSON.stringifyされた文字列にincludes('ChatChannel')される
+        ;(this.subscription as any).identifier = { channel: 'ChatChannel', conversation_id: this.conversationId }
+        w.App.cable.subscriptions.push(this.subscription)
+      }
+    } catch (e) {
+      // noop
+    }
   }
 
   disconnect(): void {
@@ -123,61 +141,11 @@ export class ChatChannel {
   }
 }
 
-// 使用例
-export function setupChatChannel(
-  conversationId: number,
-  messageContainer: HTMLElement
-): ChatChannel {
-  const channel = new ChatChannel(conversationId, {
-    onConnected: () => {
-      const statusElement = document.getElementById('connection-status')
-      if (statusElement) {
-        statusElement.textContent = '接続済み'
-        statusElement.classList.add('text-green-500')
-        statusElement.classList.remove('text-red-500')
-      }
-    },
-    
-    onDisconnected: () => {
-      const statusElement = document.getElementById('connection-status')
-      if (statusElement) {
-        statusElement.textContent = '切断'
-        statusElement.classList.add('text-red-500')
-        statusElement.classList.remove('text-green-500')
-      }
-    },
-    
-    onMessage: (message) => {
-      const messageElement = createMessageElement(message)
-      messageContainer.appendChild(messageElement)
-      messageContainer.scrollTop = messageContainer.scrollHeight
-    },
-    
-    onTyping: (data) => {
-      const typingIndicator = document.getElementById('typing-indicator')
-      if (typingIndicator) {
-        if (data.is_typing) {
-          typingIndicator.textContent = `${data.user.name}が入力中...`
-          typingIndicator.classList.remove('hidden')
-        } else {
-          typingIndicator.classList.add('hidden')
-        }
-      }
-    },
-    
-    onError: (data) => {
-      console.error('Chat error:', data.message)
-      showErrorNotification(data.message)
-    }
-  })
-
-  channel.connect()
-  return channel
-}
+// 使用例は省略（アプリ本体で利用）
 
 function createMessageElement(message: MessageData): HTMLElement {
   const messageDiv = document.createElement('div')
-  messageDiv.className = `message message-${message.role} mb-4`
+  messageDiv.className = `message message-${message.role} ${message.role === 'user' ? 'user-message' : 'assistant-message'} mb-4`
   messageDiv.dataset.messageId = message.id.toString()
   
   const contentDiv = document.createElement('div')
@@ -187,11 +155,26 @@ function createMessageElement(message: MessageData): HTMLElement {
   contentDiv.textContent = message.content
   
   const metaDiv = document.createElement('div')
-  metaDiv.className = 'text-xs text-gray-500 mt-1'
+  metaDiv.className = 'timestamp text-xs text-gray-500 mt-1'
   metaDiv.textContent = new Date(message.created_at).toLocaleString('ja-JP')
+
+  const readIndicator = document.createElement('span')
+  readIndicator.className = 'read-indicator hidden'
+
+  const optionsDiv = document.createElement('div')
+  optionsDiv.className = 'message-options'
+  const deleteBtn = document.createElement('button')
+  deleteBtn.type = 'button'
+  deleteBtn.textContent = '削除'
+  deleteBtn.addEventListener('click', () => {
+    messageDiv.remove()
+  })
+  optionsDiv.appendChild(deleteBtn)
   
   messageDiv.appendChild(contentDiv)
   messageDiv.appendChild(metaDiv)
+  messageDiv.appendChild(readIndicator)
+  messageDiv.appendChild(optionsDiv)
   
   return messageDiv
 }

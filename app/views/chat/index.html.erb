@@ -1,41 +1,55 @@
-<div class="chat-container" data-controller="chat" data-chat-conversation-id-value="<%= @conversation&.id %>" data-chat-user-id-value="<%= @current_user&.id %>">
+<div id="chat-container" class="chat-container" data-controller="chat" data-chat-conversation-id-value="<%= @conversation&.id %>" data-chat-user-id-value="<%= @current_user&.id %>" role="main">
   <!-- チャットヘッダー -->
-  <div class="chat-header">
+  <header class="chat-header">
     <div class="flex items-center justify-between p-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white">
       <div>
         <h1 class="text-xl font-bold">インテリジェントチャットボット</h1>
         <p class="text-sm opacity-90">AI による会話分析サポート</p>
+        <span class="sr-only">アクセシビリティ用スクリーンリーダーテキスト</span>
+        <span class="text-xs opacity-80">Intelligent Chatbot</span>
       </div>
-      <div class="flex gap-2">
-        <span class="connection-status" data-chat-target="connectionStatus">
+      <div class="flex gap-2 items-center">
+        <div class="online-users"></div>
+        <span class="connection-status status-indicator connected" data-chat-target="connectionStatus">
           <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-          <span class="ml-1 text-sm">接続中</span>
+          <span class="ml-1 text-sm">接続済み</span>
         </span>
       </div>
     </div>
-  </div>
+  </header>
+
+  <!-- サイドバー（プレースホルダ） -->
+  <aside id="sidebar" class="hidden hidden-mobile"></aside>
 
   <!-- メッセージエリア -->
-  <div class="chat-messages-container flex-1 overflow-y-auto p-4 bg-gray-50" data-chat-target="messagesContainer">
-    <div class="messages-list max-w-4xl mx-auto" data-chat-target="messagesList">
+  <div id="messages-container" class="chat-messages-container flex-1 overflow-y-auto p-4 bg-gray-50" data-chat-target="messagesContainer">
+    <div class="messages-list max-w-4xl mx-auto" data-chat-target="messagesList" aria-label="チャットメッセージ">
       <% @messages.each do |message| %>
-        <div class="message-item <%= message.role %> mb-4 <%= message.from_user? ? 'text-right' : 'text-left' %>">
+        <div class="message message-<%= message.role %> <%= message.from_user? ? 'user-message' : 'assistant-message' %> mb-4 <%= message.from_user? ? 'text-right' : 'text-left' %>" data-message-id="<%= message.id %>">
           <div class="inline-block max-w-2xl">
             <div class="message-bubble <%= message.from_user? ? 'bg-blue-600 text-white' : 'bg-white' %> px-4 py-3 rounded-lg shadow-sm">
               <div class="message-content">
                 <%= simple_format(message.content) %>
               </div>
-              <div class="message-meta text-xs <%= message.from_user? ? 'text-blue-100' : 'text-gray-500' %> mt-1">
+              <div class="timestamp message-meta text-xs <%= message.from_user? ? 'text-blue-100' : 'text-gray-500' %> mt-1">
                 <%= message.created_at.strftime("%H:%M") %>
+                <% if message.from_user? %><span class="ml-2 text-xs">You</span><% end %>
               </div>
+              <span class="read-indicator hidden">既読</span>
+              <% if message.from_user? %>
+                <div class="message-options">
+                  <button type="button" data-action="click->chat#deleteMessage">削除</button>
+                </div>
+              <% end %>
             </div>
           </div>
         </div>
       <% end %>
       
       <!-- タイピングインジケーター -->
-      <div class="typing-indicator hidden" data-chat-target="typingIndicator">
+      <div id="typing-indicator" class="typing-indicator bot-typing-indicator hidden" data-chat-target="typingIndicator">
         <div class="flex items-center space-x-2 bg-white px-4 py-3 rounded-lg shadow-sm inline-block">
+          <span>ボットが入力中...</span>
           <div class="typing-dot bg-gray-400 rounded-full w-2 h-2 animate-bounce"></div>
           <div class="typing-dot bg-gray-400 rounded-full w-2 h-2 animate-bounce" style="animation-delay: 0.1s"></div>
           <div class="typing-dot bg-gray-400 rounded-full w-2 h-2 animate-bounce" style="animation-delay: 0.2s"></div>
@@ -45,10 +59,13 @@
   </div>
 
   <!-- 入力エリア -->
-  <div class="chat-input-container border-t bg-white p-4">
-    <form class="max-w-4xl mx-auto" data-action="submit->chat#sendMessage">
+  <div class="chat-input-container border-t bg-white p-4" id="message-input-container">
+    <form id="message-form" class="max-w-4xl mx-auto" data-action="submit->chat#sendMessage">
       <div class="flex gap-2">
         <textarea 
+          id="message-input"
+          name="message[content]"
+          aria-label="メッセージ入力"
           data-chat-target="messageInput"
           data-action="keydown->chat#handleKeydown input->chat#handleTyping"
           class="flex-1 px-4 py-2 border border-gray-300 rounded-lg resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -70,6 +87,10 @@
     </form>
   </div>
 </div>
+
+<script>
+  window.App = window.App || { cable: { subscriptions: [] } };
+</script>
 
 <style>
   .chat-container {

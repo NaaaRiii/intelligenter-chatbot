@@ -24,6 +24,9 @@ Rails.application.routes.draw do
   # デモページ
   get 'demo/components', to: 'demo#components'
 
+  # faviconリクエストは204で無視
+  get '/favicon.ico', to: proc { [204, {}, []] }
+
   # Defines the root path route ("/")
   root "chat#index"
 end

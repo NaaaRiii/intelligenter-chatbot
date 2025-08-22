@@ -444,7 +444,7 @@
           null,
           null,
           1,
-          13,
+          14,
           null,
           null,
           1,
@@ -489,7 +489,7 @@
           1,
           null,
           1,
-          151,
+          273,
           null,
           null
         ]
@@ -524,7 +524,7 @@
           4,
           8,
           1,
-          11,
+          136,
           null,
           null,
           2,
@@ -544,11 +544,11 @@
           null,
           null,
           1,
-          13,
+          1720,
           null,
           null,
           1,
-          11,
+          1718,
           null,
           null,
           1,
@@ -581,11 +581,11 @@
           null,
           1,
           null,
-          742,
+          1022,
           null,
           null,
           1,
-          742,
+          1022,
           null,
           null,
           null,
@@ -664,8 +664,8 @@
           null,
           null,
           1,
-          814,
-          814,
+          1094,
+          1094,
           null,
           null,
           null,
@@ -673,7 +673,7 @@
           null,
           null,
           1,
-          742,
+          1022,
           null,
           null,
           1,
@@ -686,10 +686,10 @@
           null,
           1,
           null,
-          798,
+          1078,
           null,
           null,
-          798,
+          1078,
           null,
           0,
           null,
@@ -779,7 +779,7 @@
           1,
           null,
           1,
-          309,
+          475,
           null,
           null
         ]
@@ -906,10 +906,10 @@
           1,
           8,
           8,
-          0,
-          0,
-          0,
           8,
+          0,
+          0,
+          0,
           null,
           null,
           null,
@@ -1430,6 +1430,14 @@
       "/Users/nariii/intelligenter-chatbot/app/controllers/application_controller.rb": {
         "lines": [
           1,
+          null,
+          1,
+          null,
+          null,
+          null,
+          1,
+          0,
+          null,
           null
         ]
       },
@@ -2473,26 +2481,26 @@
           1,
           null,
           1,
-          5,
-          5,
+          130,
+          130,
           null,
           null,
           1,
           null,
           1,
-          5,
-          2,
+          130,
+          71,
           null,
-          3,
+          59,
           null,
           null,
           null,
           1,
-          4,
+          61,
           null,
           null,
           null,
-          4,
+          61,
           null,
           null
         ]
@@ -2552,6 +2560,14 @@
           null,
           null,
           null,
+          null
+        ]
+      },
+      "/Users/nariii/intelligenter-chatbot/app/controllers/messages_controller.rb": {
+        "lines": [
+          null,
+          null,
+          1,
           null
         ]
       },
@@ -2708,6 +2724,6 @@
         "branches": {}
       }
     },
-    "timestamp": 1755828423
+    "timestamp": 1755847736
   }
 }

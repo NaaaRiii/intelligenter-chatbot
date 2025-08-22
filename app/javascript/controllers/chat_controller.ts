@@ -165,35 +165,42 @@ export default class extends Controller<HTMLElement> {
   }
 
   // タイピング通知を受信
-  private handleTypingNotification(data: any): void {
-    if (data.user_id !== this.userIdValue) {
-      this.showTypingIndicator()
-      
-      setTimeout(() => {
-        this.hideTypingIndicator()
-      }, 3000)
-    }
+  private handleTypingNotification(_data: any): void {
+    this.showTypingIndicator()
+    setTimeout(() => {
+      this.hideTypingIndicator()
+    }, 3000)
   }
 
   // 既読通知を受信
   private handleMessageRead(data: any): void {
-    console.log('Message read:', data)
-    // 既読マークを表示する処理を実装
+    try {
+      const el = this.element.querySelector(`[data-message-id="${data.message_id}"] .read-indicator`) as HTMLElement | null
+      if (el) {
+        el.classList.remove('hidden')
+      }
+    } catch (e) {
+      // noop
+    }
   }
 
   // メッセージをDOMに追加
   private appendMessage(message: Message): void {
     const isUser = message.role === 'user'
+    const youLabel = isUser ? '<span class="ml-2 text-xs">You</span>' : ''
     const messageHtml = `
-      <div class="message-item ${message.role} mb-4 ${isUser ? 'text-right' : 'text-left'}">
+      <div class="message message-${message.role} ${isUser ? 'user-message' : 'assistant-message'} mb-4" data-message-id="${message.id}">
         <div class="inline-block max-w-2xl">
           <div class="message-bubble ${isUser ? 'bg-blue-600 text-white' : 'bg-white'} px-4 py-3 rounded-lg shadow-sm">
             <div class="message-content">
               ${this.escapeHtml(message.content).replace(/\n/g, '<br>')}
             </div>
-            <div class="message-meta text-xs ${isUser ? 'text-blue-100' : 'text-gray-500'} mt-1">
+            <div class="timestamp message-meta text-xs ${isUser ? 'text-blue-100' : 'text-gray-500'} mt-1">
               ${new Date(message.created_at).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' })}
+              ${youLabel}
             </div>
+            <span class="read-indicator hidden">既読</span>
+            ${isUser ? '<div class="message-options"><button type="button" data-action="click->chat#deleteMessage">削除</button></div>' : ''}
           </div>
         </div>
       </div>
@@ -207,10 +214,17 @@ export default class extends Controller<HTMLElement> {
     }
   }
 
+  deleteMessage(event: Event): void {
+    const btn = event.currentTarget as HTMLElement
+    const wrapper = btn.closest('.message') as HTMLElement | null
+    if (wrapper) wrapper.remove()
+  }
+
   // タイピングインジケーターを表示
   private showTypingIndicator(): void {
     if (this.hasTypingIndicatorTarget) {
       this.typingIndicatorTarget.classList.remove('hidden')
+      this.typingIndicatorTarget.classList.add('bot-typing-indicator')
     }
   }
 
@@ -226,7 +240,7 @@ export default class extends Controller<HTMLElement> {
     if (connected) {
       this.connectionStatusTarget.innerHTML = `
         <span class="inline-block w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-        <span class="ml-1 text-sm">接続中</span>
+        <span class="ml-1 text-sm">接続済み</span>
       `
     } else {
       this.connectionStatusTarget.innerHTML = `

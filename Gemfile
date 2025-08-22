@@ -80,4 +80,7 @@ group :test do
   # API テスト
   gem 'vcr'
   gem 'webmock'
+
+  # DBクリーナー
+  gem 'database_cleaner-active_record'
 end

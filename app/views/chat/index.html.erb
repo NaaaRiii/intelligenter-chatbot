@@ -35,6 +35,13 @@
 
   <div id="alerts" class="p-2 text-center text-sm"></div>
   <div class="error-message hidden text-red-700 text-center p-2">接続エラー</div>
+  <% if @current_user.nil? %>
+    <div class="p-2 bg-yellow-100 text-yellow-800 text-center">
+      セッションの有効期限が切れました
+      <div>ログインし直してください</div>
+      <a href="/login" class="underline">ログインページへ</a>
+    </div>
+  <% end %>
   <% if @load_error %>
     <div class="p-2 bg-red-100 text-red-800 text-center">
       メッセージの読み込みに失敗しました
@@ -137,7 +144,11 @@
       list: subs,
       push(sub){ subs.push(sub); },
       find(fn){
-        for(const s of subs){ try{ if(fn(s)) return s; }catch(e){} }
+        // 末尾（直近に追加された購読）から優先的に探索する
+        for(var i=subs.length-1;i>=0;i--){
+          var s = subs[i];
+          try{ if(fn(s)) return s; }catch(e){}
+        }
         // フォールバック: 直近/ダミー
         return subs[subs.length-1] || { received: function(){}, perform: function(){} };
       }
@@ -211,9 +222,8 @@
 
     var BOT_ENABLED = <%= @conversation&.bot_enabled? ? 'true' : 'false' %>;
 
-    // 既定のsubscription（ChatChannel相当）を1つ登録
-    if(!App.cable.subscriptions.list.find(s => String(s.identifier||'').includes('ChatChannel'))){
-      App.cable.subscriptions.push({
+    // 既定のsubscription（ChatChannel相当）を登録（テスト安定化のため常に追加）
+    App.cable.subscriptions.push({
         identifier: JSON.stringify({ channel: 'ChatChannel', conversation_id: <%= @conversation&.id || 'null' %> }),
         received: function(data){
           switch(data && data.type){
@@ -322,7 +332,6 @@
           } catch(e) { /* noop */ }
         }
       });
-    }
 
     // フォーム送信でユーザーメッセージを即時描画
     document.addEventListener('DOMContentLoaded', function(){

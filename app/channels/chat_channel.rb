@@ -71,10 +71,8 @@ class ChatChannel < ApplicationCable::Channel
   end
 
   def authorized?
-    if Rails.env.test?
-      return true if params[:allow_in_test]
-      # allow_in_testが無い場合は通常の認可判定
-    end
+    return true if Rails.env.test? && params[:allow_in_test]
+
     # ユーザーがこの会話に参加できるか確認
     @conversation.user_id == current_user.id || current_user.admin?
   rescue StandardError
@@ -134,8 +132,7 @@ class ChatChannel < ApplicationCable::Channel
   end
 
   def should_trigger_bot_response?(message)
-    # ユーザーメッセージの場合のみボット応答をトリガー
-    return false if Rails.env.test? && ENV['ENABLE_BOT'] != '1'
+    # ユーザーメッセージかつボット機能が有効な場合にボット応答をトリガー
     message.role == 'user' && @conversation.bot_enabled?
   end
 

@@ -56,6 +56,12 @@ export class ChatChannel {
             this.callbacks.onMessage?.(payload.message)
             this.appendToDom(payload.message)
             break
+          case 'bot_response':
+            if (payload.message) {
+              this.callbacks.onMessage?.(payload.message)
+              this.appendToDom(payload.message)
+            }
+            break
           case 'typing':
             this.callbacks.onTyping?.(payload)
             break

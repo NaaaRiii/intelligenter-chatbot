@@ -87,7 +87,7 @@ RSpec.describe 'Bot Response', :js, type: :system do
     it '複数のメッセージに順番に応答する' do
       fill_in 'message-input', with: '最初の質問'
       click_button '送信'
-      
+
       # 最初のボット応答を待つ
       expect(page).to have_selector('.message.assistant-message', count: 1, wait: 10)
 
@@ -100,7 +100,7 @@ RSpec.describe 'Bot Response', :js, type: :system do
       # メッセージの順番を確認
       assistant_messages = all('.message.assistant-message')
       expect(assistant_messages.count).to eq(2)
-      
+
       # 両方の応答が表示されていることを確認（「質問」というキーワードへの応答）
       expect(assistant_messages[0]).to have_content('ご質問ありがとうございます')
       expect(assistant_messages[1]).to have_content('ご質問ありがとうございます')

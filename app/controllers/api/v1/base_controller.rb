@@ -16,9 +16,7 @@ module Api
       def authenticate_api_user!
         if Rails.env.test?
           test_user_id = request.headers['X-Test-User-Id'] || request.headers['X-Test-User-ID']
-          if test_user_id.present?
-            @current_user = User.find_by(id: test_user_id)
-          end
+          @current_user = User.find_by(id: test_user_id) if test_user_id.present?
           @current_user ||= User.first || User.create!(email: 'test@example.com', name: 'Test User')
           return true
         end

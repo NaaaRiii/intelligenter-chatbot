@@ -75,11 +75,11 @@ module Api
       private
 
       def set_conversation
-        if Rails.env.test?
-          @conversation = Conversation.find(params[:conversation_id])
-        else
-          @conversation = current_user.conversations.find(params[:conversation_id])
-        end
+        @conversation = if Rails.env.test?
+                          Conversation.find(params[:conversation_id])
+                        else
+                          current_user.conversations.find(params[:conversation_id])
+                        end
       end
 
       def set_message

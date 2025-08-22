@@ -31,3 +31,6 @@
 
 en:
   hello: "Hello world"
+  flash:
+    sessions:
+      expired: "セッションの有効期限が切れました"

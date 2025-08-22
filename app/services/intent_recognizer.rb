@@ -8,7 +8,7 @@ class IntentRecognizer
   INTENT_KEYWORDS = {
     greeting: %w[こんにちは おはよう こんばんは はじめまして よろしく],
     question: %w[？ ? 教えて どうやって なぜ どうして いつ どこ 何],
-    complaint: %w[困った エラー 動かない おかしい 不具合 バグ 失敗 できない],
+    complaint: %w[困っ エラー 動かない おかしい 不具合 バグ 失敗 できない],
     feedback: %w[改善 提案 要望 意見 フィードバック より良く],
     thanks: %w[ありがとう 感謝 助かった お礼],
     goodbye: %w[さようなら またね 失礼 終了 バイバイ]
@@ -89,23 +89,25 @@ class IntentRecognizer
 
   # 信頼度を計算
   def calculate_confidence(matched_keywords, all_keywords)
-    base_confidence = matched_keywords.size.to_f / all_keywords.size
+    # マッチした単語数の割合をベースとする
+    base_confidence = matched_keywords.size.to_f / [all_keywords.size, 5].min
 
-    # メッセージ長による調整
-    length_factor = [@message.length / 100.0, 1.0].min
+    # メッセージ長による調整（短いメッセージは調整を小さく）
+    length_factor = [@message.length / 50.0, 0.5].min
 
     # 複数マッチによるボーナス
-    multi_match_bonus = matched_keywords.size > 1 ? 0.2 : 0
+    multi_match_bonus = matched_keywords.size > 1 ? 0.3 : 0.1
 
-    [(base_confidence + (length_factor * 0.3) + multi_match_bonus), 1.0].min
+    [(base_confidence * 0.7 + length_factor * 0.2 + multi_match_bonus), 1.0].min
   end
 
   # 最適な意図を選択
   def select_best_intent(intents)
-    # 優先順位と信頼度を考慮
-    intents.min_by do |intent|
+    # 優先順位と信頼度を考慮（高い信頼度、低い優先順位インデックスが良い）
+    intents.max_by do |intent|
       priority_index = INTENT_PRIORITY.index(intent[:type]) || INTENT_PRIORITY.size
-      [-intent[:confidence], priority_index]
+      # 信頼度を重視し、同じ信頼度なら優先順位を考慮
+      [intent[:confidence], -priority_index]
     end
   end
 

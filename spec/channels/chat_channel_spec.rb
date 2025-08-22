@@ -96,7 +96,7 @@ RSpec.describe ChatChannel, type: :channel do
       it 'enqueues AI response job' do
         expect do
           perform :send_message, message_data
-        end.to have_enqueued_job(ProcessAiResponseJob)
+        end.to have_enqueued_job(BotResponseJob)
       end
     end
 

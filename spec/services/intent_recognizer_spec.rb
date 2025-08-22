@@ -46,7 +46,7 @@ RSpec.describe IntentRecognizer, type: :service do
 
         expect(result[:type]).to eq('complaint')
         expect(result[:keywords]).to include('エラー')
-        expect(result[:keywords]).to include('困った')
+        expect(result[:keywords]).to include('困っ')
       end
 
       it '不具合報告を認識する' do

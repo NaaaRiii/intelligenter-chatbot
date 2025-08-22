@@ -10,12 +10,13 @@ RSpec.describe BotResponseJob, type: :job do
   describe '#perform' do
     context 'with valid parameters' do
       it 'ボット応答を生成する' do
+        # user_messageは既に作成済みなので、ボット応答のみがカウントされる
         expect do
           described_class.perform_now(
             conversation_id: conversation.id,
             user_message_id: user_message.id
           )
-        end.to change(Message, :count).by(1)
+        end.to change { conversation.messages.assistant_messages.count }.by(1)
 
         bot_message = conversation.messages.assistant_messages.last
         expect(bot_message).to be_present
@@ -37,8 +38,8 @@ RSpec.describe BotResponseJob, type: :job do
       end
 
       it '10メッセージごとに分析ジョブをエンキューする' do
-        # 9個のメッセージを作成
-        9.times do
+        # user_messageと合わせて9個のメッセージ（ボット応答が10個目になる）
+        8.times do
           create(:message, conversation: conversation, role: 'user')
         end
 
@@ -95,7 +96,7 @@ RSpec.describe BotResponseJob, type: :job do
             conversation_id: conversation.id,
             user_message_id: user_message.id
           )
-        end.to change(Message, :count).by(1)
+        end.to change { conversation.messages.count }.by(1)
 
         error_message = conversation.messages.last
         expect(error_message.content).to include('申し訳ございません')

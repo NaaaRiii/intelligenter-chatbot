@@ -7,6 +7,10 @@ RSpec.describe ChatBotService, type: :service do
   let(:conversation) { create(:conversation, user: user) }
   let(:user_message) { create(:message, conversation: conversation, content: 'こんにちは', role: 'user') }
 
+  before do
+    ActiveJob::Base.queue_adapter = :test
+  end
+
   describe '#initialize' do
     it '正しく初期化される' do
       service = described_class.new(

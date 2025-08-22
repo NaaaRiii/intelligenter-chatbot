@@ -234,7 +234,10 @@ export default class extends Controller<HTMLElement> {
   deleteMessage(event: Event): void {
     const btn = event.currentTarget as HTMLElement
     const wrapper = btn.closest('.message') as HTMLElement | null
-    if (wrapper) wrapper.remove()
+    if (!wrapper) return
+    if (window.confirm('本当に削除しますか？')) {
+      wrapper.remove()
+    }
   }
 
   // タイピングインジケーターを表示
@@ -278,7 +281,7 @@ export default class extends Controller<HTMLElement> {
   private handleError(data: any): void {
     const errorMessage = data.message || 'エラーが発生しました'
     const errorDiv = document.createElement('div')
-    errorDiv.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50'
+    errorDiv.className = 'error-notification fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50'
     errorDiv.textContent = errorMessage
     document.body.appendChild(errorDiv)
     setTimeout(() => {

@@ -10,7 +10,8 @@ Capybara.configure do |config|
   config.javascript_driver = :selenium_chrome_headless
   config.default_max_wait_time = 5
   config.server = :puma, { Silent: true }
-  config.server_port = 3001
+  # ランダムなポートを使用（テスト並列実行対応）
+  config.server_port = nil
 end
 
 # Chrome Headless設定

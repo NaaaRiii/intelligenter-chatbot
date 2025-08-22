@@ -51,8 +51,7 @@ jobs:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/intelligenter_chatbot_test
         run: |
-          bundle exec rails db:create
-          bundle exec rails db:migrate
+          bundle exec rails db:prepare
       
       - name: Run RSpec tests
         env:

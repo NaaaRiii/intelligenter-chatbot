@@ -143,7 +143,7 @@ export class ChatChannel {
               this.callbacks.onMessageRead?.(payload as { message_id: number; user_id: number; timestamp: string })
             }
             break
-          case 'batch_messages':
+          case 'batch_messages': {
             const list = asMessageArray((payload as { messages?: unknown }).messages)
             if (list.length) {
               list.forEach((m: MessageData) => {
@@ -152,6 +152,7 @@ export class ChatChannel {
               })
             }
             break
+          }
           default:
             // noop
         }

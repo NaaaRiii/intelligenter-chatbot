@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Error Handling', :js, type: :system do
   include SystemTestHelper
-  
+
   let(:user) { create(:user, name: 'Test User') }
   let!(:conversation) { create(:conversation, user: user) }
 
@@ -15,7 +15,7 @@ RSpec.describe 'Error Handling', :js, type: :system do
   end
 
   describe 'サーバーエラー' do
-    xit '500エラー時に適切なメッセージを表示する' do
+    it '500エラー時に適切なメッセージを表示する', skip: 'XHRモックの実装待ち' do
       visit chat_path(conversation_id: conversation.id)
 
       # JavaScriptでサーバーエラーをシミュレート（XHRをモック）
@@ -37,7 +37,7 @@ RSpec.describe 'Error Handling', :js, type: :system do
       expect(page).to have_content('サーバーエラーが発生しました', wait: 5)
     end
 
-    xit 'API タイムアウト時にエラーを表示する' do
+    it 'API タイムアウト時にエラーを表示する', skip: 'fetchタイムアウトハンドリングの実装待ち' do
       visit chat_path(conversation_id: conversation.id)
 
       # タイムアウトをシミュレート
@@ -60,8 +60,8 @@ RSpec.describe 'Error Handling', :js, type: :system do
   describe 'バリデーションエラー' do
     before do
       visit chat_path(conversation_id: conversation.id)
-      sleep 1  # JavaScriptの読み込みを待つ
-      
+      sleep 1 # JavaScriptの読み込みを待つ
+
       # sendMessage関数が定義されていることを確認、なければ定義
       page.execute_script(<<~JS)
         if(typeof window.sendMessage !== 'function') {
@@ -74,30 +74,30 @@ RSpec.describe 'Error Handling', :js, type: :system do
               alertsDiv.className = 'fixed top-4 right-4 z-50';
               document.body.appendChild(alertsDiv);
             }
-            
+        #{'    '}
             if(textarea.value.trim() === '') {
               alertsDiv.textContent = 'メッセージを入力してください';
               alertsDiv.classList.add('bg-red-100', 'text-red-700', 'p-4', 'rounded');
               return false;
             }
-            
+        #{'    '}
             if(textarea.value.length > 2000) {
               alertsDiv.textContent = 'メッセージは2000文字以内で入力してください';
               alertsDiv.classList.add('bg-red-100', 'text-red-700', 'p-4', 'rounded');
               return false;
             }
-            
+        #{'    '}
             if(/[\\x00-\\x08\\x0B\\x0C\\x0E-\\x1F\\x7F]/.test(textarea.value)) {
               alertsDiv.textContent = '不正な文字が含まれています';
               alertsDiv.classList.add('bg-red-100', 'text-red-700', 'p-4', 'rounded');
               return false;
             }
-            
+        #{'    '}
             alertsDiv.textContent = '';
             alertsDiv.className = 'fixed top-4 right-4 z-50';
             return true;
           };
-          
+        #{'  '}
           // Enterキーのイベントリスナー追加
           textarea.addEventListener('keydown', function(e) {
             if(e.key === 'Enter' && !e.shiftKey) {
@@ -211,13 +211,13 @@ RSpec.describe 'Error Handling', :js, type: :system do
       expect(detail_hidden).to be true
     end
 
-    xit 'エラーログを送信できる' do
+    it 'エラーログを送信できる', skip: 'ログ送信UIの未実装' do
       page.execute_script("console.error('Test error');")
 
       expect(page).to have_button('エラーを報告')
 
       click_button 'エラーを報告'
-      
+
       # JavaScriptの実行を待つ
       sleep 0.5
 
@@ -243,32 +243,33 @@ RSpec.describe 'Error Handling', :js, type: :system do
 
       # メッセージが保存されたことを確認
       expect(conversation.messages.reload.where(content: 'No JS test')).not_to be_empty
-      
+
       # リダイレクト先のパスを確認（conversation_idがなくても、メッセージが表示されていればOK）
       expect(page).to have_content('No JS test')
     end
 
+    # rubocop:disable RSpec/ExampleLength
     it 'WebSocket非対応時にポーリングにフォールバックする' do
       # WebSocketが無効な状態をシミュレート
       visit chat_path(conversation_id: conversation.id)
-      
+
       # WebSocketチェック前にWebSocketを無効化
       page.execute_script(<<~JS)
         // WebSocketを保存してから削除
         window.OriginalWebSocket = window.WebSocket;
         delete window.WebSocket;
-        
+
         // WebSocket非対応の通知を手動で表示
         const alertsDiv = document.getElementById('alerts');
         if(alertsDiv) {
-          const note = document.createElement('div'); 
+          const note = document.createElement('div');#{' '}
           note.className = 'bg-yellow-100 text-yellow-800 p-2 rounded mb-2';
-          note.textContent = 'WebSocketが利用できません'; 
+          note.textContent = 'WebSocketが利用できません';#{' '}
           alertsDiv.appendChild(note);
-          
-          const note2 = document.createElement('div'); 
+        #{'  '}
+          const note2 = document.createElement('div');#{' '}
           note2.className = 'bg-yellow-100 text-yellow-800 p-2 rounded';
-          note2.textContent = '定期的に更新します'; 
+          note2.textContent = '定期的に更新します';#{' '}
           alertsDiv.appendChild(note2);
         }
       JS
@@ -279,5 +280,6 @@ RSpec.describe 'Error Handling', :js, type: :system do
         expect(page).to have_content('定期的に更新します')
       end
     end
+    # rubocop:enable RSpec/ExampleLength
   end
 end

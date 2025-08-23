@@ -19,7 +19,16 @@ end
 # Chrome Headless設定
 Capybara.register_driver :selenium_chrome_headless do |app|
   options = Selenium::WebDriver::Chrome::Options.new
-  options.add_argument('--headless=new')
+
+  # CI環境かローカル環境かを判定
+  if ENV['CI'] || ENV['GITHUB_ACTIONS']
+    options.add_argument('--headless')
+    options.add_argument('--disable-web-security')
+    options.add_argument('--disable-features=VizDisplayCompositor')
+  else
+    options.add_argument('--headless=new')
+  end
+
   options.add_argument('--no-sandbox')
   options.add_argument('--disable-dev-shm-usage')
   options.add_argument('--disable-gpu')
@@ -47,14 +56,14 @@ RSpec.configure do |config|
 
   config.before(:each, :js, type: :system) do
     driven_by :selenium_chrome_headless
-    
+
     # ウィンドウサイズを設定
     page.driver.browser.manage.window.resize_to(1920, 1080) if page.driver.browser.respond_to?(:manage)
   rescue StandardError
     # ドライバーがウィンドウ管理をサポートしていない場合は無視
   end
 
-  config.after(:each, type: :system, js: true) do
+  config.after(:each, :js, type: :system) do
     # セッションをクリア
     Capybara.reset_sessions!
   rescue StandardError

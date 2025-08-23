@@ -8,33 +8,10 @@ class ChatController < ApplicationController
     @current_user = current_user
     @load_error = false
     begin
-      @messages = if @conversation
-                    Message.where(conversation_id: @conversation.id).chronological
-                  else
-                    []
-                  end
-
-      # テスト安定化: 直近のユーザーメッセージに追随するボット応答が無ければ生成
-      if Rails.env.test? && @conversation&.bot_enabled?
-        last_user = @conversation.last_user_message
-        if last_user
-          has_following_assistant = @conversation.messages
-                                              .where(role: 'assistant')
-                                              .where('created_at > ?', last_user.created_at)
-                                              .exists?
-          unless has_following_assistant
-            begin
-              ChatBotService.new(conversation: @conversation, user_message: last_user).generate_response
-              @messages = Message.where(conversation_id: @conversation.id).chronological
-            rescue StandardError
-              # noop
-            end
-          end
-        end
-      end
+      @messages = load_messages
+      trigger_test_bot_response_if_needed
     rescue StandardError
-      @messages = []
-      @load_error = true
+      handle_index_error
     end
   end
 
@@ -52,11 +29,11 @@ class ChatController < ApplicationController
 
     # サーバーサイドバリデーション
     if content.blank?
-      flash[:alert] = 'メッセージを入力してください'
+      flash[:alert] = I18n.t('flash.messages.blank')
     elsif content.length > 2000
-      flash[:alert] = 'メッセージは2000文字以内で入力してください'
+      flash[:alert] = I18n.t('flash.messages.too_long', count: 2000)
     elsif content.match?(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/)
-      flash[:alert] = '不正な文字が含まれています'
+      flash[:alert] = I18n.t('flash.messages.invalid_chars')
     elsif content.present?
       message = create_message_record(@conversation, content, role, user)
       # テスト安定化: ユーザーメッセージ作成時にAI応答をキック
@@ -137,5 +114,41 @@ class ChatController < ApplicationController
       role: role,
       metadata: { sender_id: user&.id }
     )
+  end
+
+  # index 用の補助メソッド群
+  def load_messages
+    return [] unless @conversation
+
+    Message.where(conversation_id: @conversation.id).chronological
+  end
+
+  def trigger_test_bot_response_if_needed
+    return unless Rails.env.test? && @conversation&.bot_enabled?
+
+    last_user = @conversation.last_user_message
+    return unless last_user
+
+    return if assistant_exists_after?(last_user)
+
+    generate_bot_response_for(last_user)
+    @messages = load_messages
+  rescue StandardError
+    # noop
+  end
+
+  def assistant_exists_after?(last_user_message)
+    @conversation.messages
+                 .where(role: 'assistant')
+                 .exists?(['created_at > ?', last_user_message.created_at])
+  end
+
+  def generate_bot_response_for(user_message)
+    ChatBotService.new(conversation: @conversation, user_message: user_message).generate_response
+  end
+
+  def handle_index_error
+    @messages = []
+    @load_error = true
   end
 end

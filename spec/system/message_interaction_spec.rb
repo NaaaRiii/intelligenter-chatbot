@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Message Interaction', :js, type: :system do
   include SystemTestHelper
-  
+
   let(:user) { create(:user, name: 'Test User') }
   let!(:conversation) { create(:conversation, user: user) }
 
@@ -31,15 +31,16 @@ RSpec.describe 'Message Interaction', :js, type: :system do
       expect(user_messages.last.content).to eq('こんにちは、テストメッセージです')
     end
 
+    # rubocop:disable RSpec/ExampleLength
     it '空のメッセージは送信できない' do
       initial_count = conversation.messages.count
-      
+
       # JavaScriptが読み込まれるまで待つ
       sleep 1
-      
+
       # sendMessage関数の存在を確認
       has_function = page.evaluate_script('typeof window.sendMessage')
-      
+
       if has_function != 'function'
         # 関数が定義されていない場合は手動で定義
         page.execute_script(<<~JS)
@@ -52,7 +53,7 @@ RSpec.describe 'Message Interaction', :js, type: :system do
             error.textContent = 'メッセージを入力してください';
             textarea.parentNode.appendChild(error);
           }
-          
+
           window.sendMessage = function() {
             const error = document.querySelector('.validation-error');
             if(textarea.value.trim() === '') {
@@ -64,29 +65,31 @@ RSpec.describe 'Message Interaction', :js, type: :system do
           };
         JS
       end
-      
+
       fill_in 'message-input', with: ''
-      
+
       # JavaScriptで直接送信を試みる
       page.execute_script('window.sendMessage()')
-      
+
       # エラーメッセージがvisible:blockになっているか確認
       error_visible = page.evaluate_script("document.querySelector('.validation-error') && document.querySelector('.validation-error').style.display === 'block'")
       expect(error_visible).to be true
-      
+
       # メッセージが増えていないことを確認
       expect(conversation.messages.reload.count).to eq(initial_count)
     end
+    # rubocop:enable RSpec/ExampleLength
 
+    # rubocop:disable RSpec/ExampleLength
     it 'Enterキーでメッセージを送信できる' do
       # JavaScriptが読み込まれるまで待つ
       sleep 1
-      
+
       fill_in 'message-input', with: 'Enterキーテスト'
-      
+
       # sendMessage関数の存在を確認して、なければ定義
       has_function = page.evaluate_script('typeof window.sendMessage')
-      
+
       if has_function != 'function'
         # appendMessage関数も含めて定義
         page.execute_script(<<~JS)
@@ -99,11 +102,11 @@ RSpec.describe 'Message Interaction', :js, type: :system do
               container.appendChild(div);
             }
           };
-          
+
           window.sendMessage = function() {
             const textarea = document.getElementById('message-input');
             if(textarea.value.trim() === '') return false;
-            
+          #{'  '}
             const messageContent = textarea.value;
             window.appendMessage({ role: 'user', content: messageContent });
             textarea.value = '';
@@ -111,15 +114,16 @@ RSpec.describe 'Message Interaction', :js, type: :system do
           };
         JS
       end
-      
+
       # JavaScriptの関数を直接呼び出す
       page.execute_script('window.sendMessage()')
-      
-      sleep 0.5  # 処理を待つ
-      
+
+      sleep 0.5 # 処理を待つ
+
       expect(page).to have_content('Enterキーテスト', wait: 5)
       # メッセージがDOMに追加されることを確認（データベース保存はモックされているため除外）
     end
+    # rubocop:enable RSpec/ExampleLength
 
     it 'Shift+Enterで改行できる' do
       fill_in 'message-input', with: '改行'
@@ -133,28 +137,26 @@ RSpec.describe 'Message Interaction', :js, type: :system do
     it '送信後に入力フィールドがクリアされる' do
       fill_in 'message-input', with: 'テストメッセージ'
       click_button '送信'
-      
+
       # メッセージが表示されるまで待つ
       expect(page).to have_content('テストメッセージ', wait: 5)
-      
+
       # JavaScriptで入力フィールドの値を確認
       field_value = page.evaluate_script("document.getElementById('message-input').value")
       expect(field_value).to eq('')
     end
 
     it '連続してメッセージを送信できる' do
-      initial_count = conversation.messages.count
-      
       fill_in 'message-input', with: '最初のメッセージ'
       click_button '送信'
-      
+
       # 最初のメッセージが表示されるまで待つ
       expect(page).to have_content('最初のメッセージ', wait: 5)
       sleep 0.5
 
       fill_in 'message-input', with: '二番目のメッセージ'
       click_button '送信'
-      
+
       # 二番目のメッセージが表示されるまで待つ
       expect(page).to have_content('二番目のメッセージ', wait: 5)
 
@@ -175,20 +177,20 @@ RSpec.describe 'Message Interaction', :js, type: :system do
     it 'メッセージを時系列順に表示する' do
       # ページが完全に読み込まれるまで待つ
       expect(page).to have_selector('.message', minimum: 2, wait: 5)
-      
+
       messages = all('.message')
-      
+
       # デバッグ: 実際のメッセージ内容を確認
-      message_contents = messages.map { |m| m.text }
-      
+      message_contents = messages.map(&:text)
+
       # 古いメッセージと新しいメッセージが含まれていることを確認
       expect(message_contents.join(' ')).to include('古いメッセージ')
       expect(message_contents.join(' ')).to include('新しいメッセージ')
-      
+
       # 順序を確認（古いメッセージが先に表示される）
       old_index = message_contents.index { |text| text.include?('古いメッセージ') }
       new_index = message_contents.index { |text| text.include?('新しいメッセージ') }
-      
+
       expect(old_index).to be < new_index if old_index && new_index
     end
 
@@ -239,17 +241,16 @@ RSpec.describe 'Message Interaction', :js, type: :system do
       visit chat_path(conversation_id: conversation.id)
     end
 
+    # rubocop:disable RSpec/ExampleLength
     it '新しいメッセージで自動スクロールする' do
       # 初期スクロール位置を確認（多数のメッセージがあるので、スクロール可能な状態）
-      initial_scroll_position = page.evaluate_script('document.getElementById("messages-container").scrollTop')
-      max_scroll = page.evaluate_script('document.getElementById("messages-container").scrollHeight - document.getElementById("messages-container").clientHeight')
-      
+
       # スクロール位置を上に戻す（自動スクロールのテストのため）
       page.execute_script('document.getElementById("messages-container").scrollTop = 0')
-      
+
       # メッセージを送信
       fill_in 'message-input', with: '新しいメッセージ'
-      
+
       # sendMessage関数が存在するか確認し、なければ定義
       page.execute_script(<<~JS)
         if(typeof window.sendMessage !== 'function') {
@@ -260,7 +261,7 @@ RSpec.describe 'Message Interaction', :js, type: :system do
               wrapper.className = 'message user-message mb-4';
               wrapper.innerHTML = '<div class="message-content">' + msg.content + '</div>';
               list.appendChild(wrapper);
-              
+        #{'      '}
               // 自動スクロール
               const container = document.getElementById('messages-container');
               if(container) {
@@ -268,27 +269,28 @@ RSpec.describe 'Message Interaction', :js, type: :system do
               }
             }
           };
-          
+        #{'  '}
           window.sendMessage = function() {
             const textarea = document.getElementById('message-input');
             if(textarea.value.trim() === '') return false;
-            
+        #{'    '}
             window.appendMessage({ role: 'user', content: textarea.value });
             textarea.value = '';
             return true;
           };
         }
-        
+
         // メッセージを送信
         window.sendMessage();
       JS
 
       sleep 0.5 # スクロールアニメーション待ち
-      
+
       # スクロール位置が最下部になっていることを確認
       new_scroll_position = page.evaluate_script('document.getElementById("messages-container").scrollTop')
       expect(new_scroll_position).to be > 0
     end
+    # rubocop:enable RSpec/ExampleLength
 
     it '古いメッセージを読むためにスクロールできる' do
       page.execute_script('document.getElementById("messages-container").scrollTop = 0')
@@ -333,7 +335,7 @@ RSpec.describe 'Message Interaction', :js, type: :system do
       within('.message.user-message', match: :first) do
         click_button '削除を確認'
       end
-      
+
       # JavaScriptで削除処理をシミュレート
       page.execute_script(<<~JS)
         const message = document.querySelector('[data-message-id="#{deletable_message.id}"]');
@@ -344,12 +346,16 @@ RSpec.describe 'Message Interaction', :js, type: :system do
           }
         }
       JS
-      
+
       # ダイアログを受け入れる
-      page.driver.browser.switch_to.alert.accept rescue nil
-      
+      begin
+        page.driver.browser.switch_to.alert.accept
+      rescue StandardError
+        nil
+      end
+
       sleep 0.5
-      
+
       expect(page).not_to have_content('削除可能メッセージ')
       # 実際のデータベースでの削除はAPIコールに依存するため、ここではUIの確認のみ
     end

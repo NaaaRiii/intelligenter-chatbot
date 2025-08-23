@@ -1,10 +1,12 @@
 # frozen_string_literal: true
 
+# rubocop:disable RSpec/ExampleLength
+
 require 'rails_helper'
 
 RSpec.describe 'WebSocket Communication', :js, type: :system do
   include SystemTestHelper
-  
+
   let(:user1) { create(:user, name: 'User 1') }
   let(:user2) { create(:user, name: 'User 2') }
   let!(:conversation) { create(:conversation, user: user1) }
@@ -17,7 +19,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         visit chat_path(conversation_id: conversation.id)
         setup_test_environment
         sleep 1
-        
+
         # sendMessage関数を定義
         page.execute_script(<<~JS)
           window.appendMessage = function(msg) {
@@ -29,13 +31,13 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
               list.appendChild(wrapper);
             }
           };
-          
+
           window.sendMessage = function() {
             const textarea = document.getElementById('message-input');
             if(textarea.value.trim() === '') return false;
-            
+          #{'  '}
             window.appendMessage({ role: 'user', content: textarea.value });
-            
+          #{'  '}
             // 実際にメッセージをDBに保存
             const form = document.getElementById('message-form');
             if(form) {
@@ -48,12 +50,12 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
                 }
               });
             }
-            
+          #{'  '}
             textarea.value = '';
             return true;
           };
         JS
-        
+
         expect(page).to have_selector('#message-input')
       end
 
@@ -64,7 +66,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         visit chat_path(conversation_id: conversation.id)
         setup_test_environment
         sleep 1
-        
+
         # User 2でもappendMessage関数を定義
         page.execute_script(<<~JS)
           window.appendMessage = function(msg) {
@@ -77,7 +79,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
             }
           };
         JS
-        
+
         expect(page).to have_selector('#message-input')
       end
 
@@ -85,7 +87,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       using_session :user1 do
         fill_in 'message-input', with: 'User 1からのメッセージ'
         page.execute_script('window.sendMessage()')
-        
+
         # メッセージが表示されるまで待つ
         expect(page).to have_content('User 1からのメッセージ', wait: 5)
       end
@@ -96,7 +98,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         page.execute_script(<<~JS)
           window.appendMessage({ role: 'user', content: 'User 1からのメッセージ' });
         JS
-        
+
         expect(page).to have_content('User 1からのメッセージ', wait: 5)
       end
     end
@@ -115,7 +117,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         visit chat_path(conversation_id: conversation.id)
         setup_test_environment
         sleep 1
-        
+
         # タイピング通知を表示する関数を定義
         page.execute_script(<<~JS)
           window.showTypingIndicator = function(userName) {
@@ -142,7 +144,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       # User 1がタイピング開始
       using_session :user1 do
         fill_in 'message-input', with: 'タイピング中...'
-        
+
         # WebSocket経由でタイピング通知を送信（シミュレート）
         # 実際にはWebSocketで送信されるが、テストではUser 2側で直接表示
       end
@@ -151,7 +153,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       using_session :user2 do
         # WebSocket経由でタイピング通知を受信したことをシミュレート
         page.execute_script("window.showTypingIndicator('User 1');")
-        
+
         expect(page).to have_content('User 1が入力中...', wait: 3)
       end
     end
@@ -174,13 +176,13 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       visit chat_path(conversation_id: conversation.id)
       setup_test_environment
       sleep 1
-      
+
       # 接続状態を管理する関数を定義
       page.execute_script(<<~JS)
         window.setConnectionStatus = function(status) {
           const statusElement = document.querySelector('.connection-status');
           const alertsDiv = document.getElementById('alerts');
-          
+        #{'  '}
           if(status === 'disconnected') {
             // 切断状態を表示
             if(statusElement) {
@@ -236,7 +238,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       # 自動再接続をシミュレート
       page.execute_script("window.setConnectionStatus('reconnecting');")
       expect(page).to have_content('再接続中...', wait: 2)
-      
+
       # 再接続成功をシミュレート
       page.execute_script("window.setConnectionStatus('connected');")
       expect(page).to have_content('接続済み', wait: 2)
@@ -246,13 +248,13 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       visit chat_path(conversation_id: conversation.id)
       setup_test_environment
       sleep 1
-      
+
       # 接続状態を管理する関数を定義（前のテストと同様）
       page.execute_script(<<~JS)
         window.setConnectionStatus = function(status) {
           const statusElement = document.querySelector('.connection-status');
           const alertsDiv = document.getElementById('alerts');
-          
+        #{'  '}
           if(status === 'disconnected') {
             // 切断状態を表示
             if(statusElement) {
@@ -282,7 +284,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
             }
           }
         };
-        
+
         // 再接続関数を定義
         window.reconnect = function() {
           window.setConnectionStatus('connected');
@@ -299,12 +301,12 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         }
         window.setConnectionStatus('disconnected');
       JS
-      
+
       expect(page).to have_content('接続が切断されました', wait: 3)
 
       # 手動再接続ボタンをクリック
       click_button '再接続'
-      
+
       # 再接続処理をシミュレート
       page.execute_script('window.reconnect();')
 
@@ -323,7 +325,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         visit chat_path(conversation_id: conversation.id)
         setup_test_environment
         sleep 1
-        
+
         # オンラインユーザー表示機能を実装
         page.execute_script(<<~JS)
           // オンラインユーザーリストを作成
@@ -332,7 +334,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
             onlineUsersDiv.style.display = 'block';
             onlineUsersDiv.innerHTML = '<div class="user-status online">User 1</div>';
           }
-          
+
           window.addOnlineUser = function(userName) {
             const onlineUsersDiv = document.querySelector('.online-users');
             if(onlineUsersDiv) {
@@ -343,7 +345,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
             }
           };
         JS
-        
+
         expect(page).to have_selector('.online-users')
         expect(page).to have_content('User 1')
       end
@@ -353,7 +355,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         visit chat_path(conversation_id: conversation.id)
         setup_test_environment
         sleep 1
-        
+
         # User 2もオンラインユーザーリストに追加
         page.execute_script(<<~JS)
           const onlineUsersDiv = document.querySelector('.online-users');
@@ -367,7 +369,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       using_session :user1 do
         # WebSocket経由でUser 2の参加を通知（シミュレート）
         page.execute_script("window.addOnlineUser('User 2');")
-        
+
         expect(page).to have_content('User 2', wait: 5)
         expect(page).to have_selector('.user-status.online', count: 2)
       end
@@ -377,7 +379,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       visit chat_path(conversation_id: conversation.id)
       setup_test_environment
       sleep 1
-      
+
       # ユーザー通知を表示する関数を定義
       page.execute_script(<<~JS)
         window.showUserNotification = function(message) {
@@ -388,7 +390,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
             notification.textContent = message;
             alertsDiv.appendChild(notification);
           }
-          
+        #{'  '}
           // メッセージコンテナにも表示
           const container = document.getElementById('messages-container');
           if(container) {
@@ -406,7 +408,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         visit chat_path(conversation_id: conversation.id)
         setup_test_environment
       end
-      
+
       # User 1の画面にUser 2の参加を通知
       page.execute_script("window.showUserNotification('User 2が参加しました');")
       expect(page).to have_content('User 2が参加しました', wait: 5)
@@ -420,7 +422,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
           }
         JS
       end
-      
+
       # User 1の画面にUser 2の退出を通知
       page.execute_script("window.showUserNotification('User 2が退出しました');")
       expect(page).to have_content('User 2が退出しました', wait: 5)
@@ -438,7 +440,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
     it 'メッセージの既読状態が同期される' do
       # メッセージを作成してDOMに追加
       test_message = create(:message, conversation: conversation, content: 'テストメッセージ', role: 'user')
-      
+
       # メッセージをDOMに表示
       page.execute_script(<<~JS)
         const list = document.querySelector('[data-chat-target="messagesList"]');
@@ -455,7 +457,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
           `;
           list.appendChild(wrapper);
         }
-        
+
         // 既読にする関数を定義
         window.markAsRead = function(messageId) {
           const messageEl = document.querySelector('[data-message-id="' + messageId + '"]');
@@ -479,7 +481,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
     it 'メッセージの削除が同期される' do
       # メッセージを作成してDOMに追加
       test_message = create(:message, conversation: conversation, content: '削除するメッセージ', role: 'user')
-      
+
       # メッセージをDOMに表示
       page.execute_script(<<~JS)
         const list = document.querySelector('[data-chat-target="messagesList"]');
@@ -492,7 +494,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
           `;
           list.appendChild(wrapper);
         }
-        
+
         // メッセージを削除する関数を定義
         window.deleteMessage = function(messageId) {
           const messageEl = document.querySelector('[data-message-id="' + messageId + '"]');
@@ -554,13 +556,13 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       visit chat_path(conversation_id: conversation.id)
       setup_test_environment
       sleep 1
-      
+
       # バッチメッセージ処理関数を定義
       page.execute_script(<<~JS)
         window.processBatchMessages = function(messages) {
           const list = document.querySelector('[data-chat-target="messagesList"]');
           if(!list) return;
-          
+        #{'  '}
           messages.forEach(function(msgData) {
             const wrapper = document.createElement('div');
             wrapper.className = 'message ' + (msgData.role === 'assistant' ? 'assistant-message' : 'user-message') + ' mb-4';
@@ -574,7 +576,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
       batch_messages = 5.times.map do |i|
         { content: "バッチメッセージ #{i}", role: 'assistant' }
       end
-      
+
       page.execute_script("window.processBatchMessages(#{batch_messages.to_json});")
 
       # 全てのバッチメッセージが表示されることを確認
@@ -584,3 +586,4 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
     end
   end
 end
+# rubocop:enable RSpec/ExampleLength

@@ -77,7 +77,7 @@ RSpec.describe 'Bot Response', :js, type: :system do
 
       # 少し待ってからタイピングインジケーターが表示されるか確認
       sleep 0.5
-      
+
       # タイピングインジケーターが表示される（IDで探す）
       expect(page).to have_selector('#typing-indicator', wait: 2)
       within('#typing-indicator') do
@@ -130,7 +130,7 @@ RSpec.describe 'Bot Response', :js, type: :system do
       end
     end
 
-    xit 'ボット応答にメタデータを表示する' do
+    it 'ボット応答にメタデータを表示する', skip: 'メタデータパネルのUI未実装' do
       fill_in 'message-input', with: 'こんにちは'
       click_button '送信'
 
@@ -139,7 +139,7 @@ RSpec.describe 'Bot Response', :js, type: :system do
       within('.message.assistant-message', match: :first) do
         # メタデータパネルを探す
         expect(page).to have_selector('.message-meta-panel', wait: 2)
-        
+
         within('.message-meta-panel') do
           expect(page).to have_content('意図')
           expect(page).to have_content('信頼度')
@@ -184,7 +184,7 @@ RSpec.describe 'Bot Response', :js, type: :system do
 
       # 正常な応答が返ることを確認（ボット応答が2つあることを確認）
       expect(page).to have_selector('.message.assistant-message', minimum: 2, wait: 5)
-      
+
       # 2番目の応答が正常であることを確認
       assistant_messages = all('.message.assistant-message')
       expect(assistant_messages.last.text).not_to include('エラー')

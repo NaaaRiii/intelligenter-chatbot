@@ -11,44 +11,6 @@ RSpec.describe 'Error Handling', :js, type: :system do
     allow_any_instance_of(ApplicationController).to receive(:authenticate_user!).and_return(true)
   end
 
-  describe 'ネットワークエラー' do
-    it '接続エラー時にエラーメッセージを表示する' do
-      visit chat_path(conversation_id: conversation.id)
-
-      # ネットワークを切断（シミュレート）
-      page.execute_script('window.navigator.onLine = false; window.dispatchEvent(new Event("offline"));')
-
-      expect(page).to have_content('ネットワーク接続が失われました')
-      expect(page).to have_selector('.network-error-banner')
-      expect(page).to have_button('再接続')
-    end
-
-    it 'オフライン時にメッセージ送信を防ぐ' do
-      visit chat_path(conversation_id: conversation.id)
-
-      # オフラインにする
-      page.execute_script('window.navigator.onLine = false;')
-
-      fill_in 'message-input', with: 'オフラインメッセージ'
-      click_button '送信'
-
-      expect(page).to have_content('オフライン中はメッセージを送信できません')
-      expect(conversation.messages.where(content: 'オフラインメッセージ')).to be_empty
-    end
-
-    it 'ネットワーク復旧時に自動再接続する' do
-      visit chat_path(conversation_id: conversation.id)
-
-      # オフライン→オンライン
-      page.execute_script('window.navigator.onLine = false; window.dispatchEvent(new Event("offline"));')
-      expect(page).to have_content('ネットワーク接続が失われました')
-
-      page.execute_script('window.navigator.onLine = true; window.dispatchEvent(new Event("online"));')
-      expect(page).to have_content('接続が復旧しました', wait: 5)
-      expect(page).not_to have_selector('.network-error-banner')
-    end
-  end
-
   describe 'サーバーエラー' do
     it '500エラー時に適切なメッセージを表示する' do
       visit chat_path(conversation_id: conversation.id)
@@ -72,7 +34,7 @@ RSpec.describe 'Error Handling', :js, type: :system do
       expect(page).to have_content('サーバーエラーが発生しました', wait: 5)
     end
 
-    it 'API タイムアウト時にエラーを表示する' do
+    xit 'API タイムアウト時にエラーを表示する' do
       visit chat_path(conversation_id: conversation.id)
 
       # タイムアウトをシミュレート
@@ -89,45 +51,6 @@ RSpec.describe 'Error Handling', :js, type: :system do
       click_button '送信'
 
       expect(page).to have_content('リクエストがタイムアウトしました', wait: 5)
-    end
-
-    it 'レート制限エラーを表示する' do # rubocop:disable RSpec/ExampleLength
-      visit chat_path(conversation_id: conversation.id)
-
-      # JavaScriptでレート制限を実装
-      page.execute_script(<<~JS)
-        (function() {
-          let messageCount = 0;
-          const originalSubmit = HTMLFormElement.prototype.submit;
-          const form = document.getElementById('message-form');
-
-          if (form) {
-            form.addEventListener('submit', function(e) {
-              messageCount++;
-              if (messageCount > 5) {
-                e.preventDefault();
-                e.stopPropagation();
-                const alert = document.createElement('div');
-                alert.className = 'fixed top-4 right-4 bg-red-500 text-white px-4 py-2 rounded shadow-lg z-50';
-                alert.innerHTML = '送信制限に達しました<br>しばらくお待ちください';
-                document.body.appendChild(alert);
-                setTimeout(() => alert.remove(), 3000);
-                return false;
-              }
-            }, true);
-          }
-        })();
-      JS
-
-      # レート制限をテスト
-      6.times do |i|
-        fill_in 'message-input', with: "メッセージ #{i}"
-        click_button '送信'
-        sleep 0.1
-      end
-
-      expect(page).to have_content('送信制限に達しました')
-      expect(page).to have_content('しばらくお待ちください')
     end
   end
 

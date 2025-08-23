@@ -55,14 +55,56 @@ export class ChatChannel {
           case 'new_message':
             this.callbacks.onMessage?.(payload.message)
             this.appendToDom(payload.message)
+            try {
+              if (payload?.message?.role === 'assistant') {
+                const ti = document.getElementById('typing-indicator') as HTMLElement | null
+                if (ti) {
+                  ti.classList.add('hidden')
+                  ti.classList.remove('bot-typing-indicator')
+                  ti.style.display = 'none'
+                }
+              }
+            } catch { /* noop */ }
             break
           case 'bot_response':
             if (payload.message) {
               this.callbacks.onMessage?.(payload.message)
               this.appendToDom(payload.message)
+              try {
+                const ti = document.getElementById('typing-indicator') as HTMLElement | null
+                if (ti) {
+                  ti.classList.add('hidden')
+                  ti.classList.remove('bot-typing-indicator')
+                  ti.style.display = 'none'
+                }
+              } catch { /* noop */ }
             }
             break
           case 'typing':
+            try {
+              const sup = (window as any).__SUPPRESS_TYPING_HIDE_UNTIL
+              if (typeof sup === 'number' && Date.now() < sup) {
+                const el = document.getElementById('typing-indicator') as HTMLElement | null
+                if (el) {
+                  el.classList.remove('hidden')
+                  el.classList.add('bot-typing-indicator')
+                  el.style.display = 'block'
+                }
+                break
+              }
+              const el = document.getElementById('typing-indicator') as HTMLElement | null
+              if (el) {
+                if ((payload as any)?.is_typing) {
+                  el.classList.remove('hidden')
+                  el.classList.add('bot-typing-indicator')
+                  el.style.display = 'block'
+                } else {
+                  el.classList.add('hidden')
+                  el.classList.remove('bot-typing-indicator')
+                  el.style.display = 'none'
+                }
+              }
+            } catch { /* noop */ }
             this.callbacks.onTyping?.(payload)
             break
           case 'user_connected':

@@ -1,6 +1,7 @@
 import "@hotwired/turbo-rails"
 import "./controllers"
 import "./styles/application.css"
+import "./typing_indicator_manager"
 
 // ActionCable設定
 import * as ActionCable from "@rails/actioncable"

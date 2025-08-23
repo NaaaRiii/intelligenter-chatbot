@@ -26,6 +26,10 @@ gem 'vite_rails', '~> 3.0'
 gem 'jbuilder'
 gem 'rack-cors'
 
+# AI・外部API
+gem 'httparty', '~> 0.21' # HTTP クライアント
+gem 'ruby-anthropic', '~> 0.4.2' # Claude API クライアント
+
 # GraphQL
 gem 'graphiql-rails', '~> 1.9', group: :development
 gem 'graphql', '~> 2.2'

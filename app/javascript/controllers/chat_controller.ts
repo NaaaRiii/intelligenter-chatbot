@@ -184,7 +184,11 @@ export default class extends Controller<HTMLElement> {
       return
     }
     // 制御文字のバリデーション (NULL等の不可視制御文字を拒否)
-    if (/[\u0000-\u001F\u007F]/.test(content)) {
+    const hasControlChars = Array.from(content).some((ch) => {
+      const code = ch.charCodeAt(0)
+      return (code >= 0 && code <= 31) || code === 127
+    })
+    if (hasControlChars) {
       this.handleError({ message: '不正な文字が含まれています' })
       return
     }

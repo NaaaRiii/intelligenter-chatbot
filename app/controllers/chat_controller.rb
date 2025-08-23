@@ -66,12 +66,9 @@ class ChatController < ApplicationController
     conv = Conversation.find_by(id: params[:conversation_id])
 
     if conv.nil?
-      if Rails.env.test?
-        @conversation = nil
-        @not_found = true
-      else
-        @conversation = create_new_conversation
-      end
+      # テスト/本番問わず、存在しないIDなら新規作成し、UIに不在通知も出す
+      @not_found = true
+      @conversation = create_new_conversation
       return
     end
 

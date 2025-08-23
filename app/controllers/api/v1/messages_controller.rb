@@ -46,12 +46,8 @@ module Api
 
       def handle_successful_message_creation
         if @message.from_user?
-          if Rails.env.test?
-            enabled = request.headers['X-Enable-Bot'].to_s.downcase == 'true'
-            ProcessAiResponseJob.perform_later(@message.id) if enabled
-          else
-            ProcessAiResponseJob.perform_later(@message.id)
-          end
+          # テスト環境でも常にジョブをエンキュー（specはhave_enqueued_jobを期待）
+          ProcessAiResponseJob.perform_later(@message.id)
         end
         render json: message_json(@message), status: :created
       end

@@ -15,11 +15,22 @@ module Api
 
       def authenticate_api_user!
         if Rails.env.test?
+          # Accept explicit test user header first
           test_user_id = request.headers['X-Test-User-Id'] || request.headers['X-Test-User-ID']
-          @current_user = User.find_by(id: test_user_id) if test_user_id.present?
-          @current_user ||= User.first || User.create!(email: 'test@example.com', name: 'Test User')
+          if test_user_id.present?
+            @current_user = User.find_by(id: test_user_id)
+            return head :unauthorized unless @current_user
+            return true
+          end
+
+          # Fallback to Authorization: Bearer <token> even in test
+          authorized = authenticate_with_http_token do |token, _options|
+            @current_user = User.find_by(api_token: token)
+          end
+          return head :unauthorized unless authorized && @current_user
           return true
         end
+
         authenticate_or_request_with_http_token do |token|
           @current_user = User.find_by(api_token: token)
         end

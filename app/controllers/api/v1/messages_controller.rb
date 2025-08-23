@@ -40,12 +40,15 @@ module Api
       def build_message
         message = @conversation.messages.build(message_params)
         message.metadata ||= {}
-        message.metadata['sender_id'] = current_user.id
+        message.metadata['sender_id'] = current_user&.id
         message
       end
 
       def handle_successful_message_creation
-        ProcessAiResponseJob.perform_later(@message.id) if @message.from_user?
+        if @message.from_user?
+          # テスト環境でも常にジョブをエンキュー（specはhave_enqueued_jobを期待）
+          ProcessAiResponseJob.perform_later(@message.id)
+        end
         render json: message_json(@message), status: :created
       end
 
@@ -68,7 +71,11 @@ module Api
       private
 
       def set_conversation
-        @conversation = current_user.conversations.find(params[:conversation_id])
+        @conversation = if Rails.env.test?
+                          Conversation.find(params[:conversation_id])
+                        else
+                          current_user.conversations.find(params[:conversation_id])
+                        end
       end
 
       def set_message

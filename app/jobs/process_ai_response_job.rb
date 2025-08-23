@@ -65,6 +65,10 @@ class ProcessAiResponseJob < ApplicationJob
     content = case message.content.downcase
               when /こんにちは|hello/
                 'こんにちは！お手伝いできることはありますか？'
+              when /使い方|教えて|どうやって|なぜ|どうして|いつ|どこ|何|\?|？|質問/
+                'ご質問ありがとうございます。お問い合わせ内容を確認いたします。'
+              when /困って|エラー|不具合|苦情/
+                '申し訳ございません。ご不便をおかけしております。状況をお知らせください。'
               when /ありがとう|thank/
                 'どういたしまして！他にご質問はございますか？'
               when /さようなら|bye/

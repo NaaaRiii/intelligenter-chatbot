@@ -3,7 +3,7 @@ class Message < ApplicationRecord
 
   # 定数
   ROLES = %w[user assistant system].freeze
-  MAX_CONTENT_LENGTH = 10_000
+  MAX_CONTENT_LENGTH = 2_000
 
   # アソシエーション
   belongs_to :conversation

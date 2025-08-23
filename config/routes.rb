@@ -5,6 +5,7 @@ Rails.application.routes.draw do
   # チャット画面
   get 'chat', to: 'chat#index'
   get 'chat/:conversation_id', to: 'chat#index', as: :conversation_chat
+  post 'chat', to: 'chat#create_message'
   
   # RESTful API v1
   namespace :api do
@@ -23,6 +24,9 @@ Rails.application.routes.draw do
 
   # デモページ
   get 'demo/components', to: 'demo#components'
+
+  # faviconリクエストは204で無視
+  get '/favicon.ico', to: proc { [204, {}, []] }
 
   # Defines the root path route ("/")
   root "chat#index"

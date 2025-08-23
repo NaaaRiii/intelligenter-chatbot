@@ -8,33 +8,41 @@ class BotResponseJob < ApplicationJob
   retry_on StandardError, wait: 5.seconds, attempts: 3
 
   def perform(conversation_id:, user_message_id:)
-    conversation = Conversation.find(conversation_id)
-    user_message = Message.find(user_message_id)
+    conversation, user_message = load_records(conversation_id, user_message_id)
+    return unless valid_user_message?(user_message, conversation_id)
 
-    # ユーザーメッセージであることを確認
-    return unless user_message.role == 'user'
-    return unless user_message.conversation_id == conversation_id
-
-    # ボット応答を生成
-    bot_service = ChatBotService.new(
-      conversation: conversation,
-      user_message: user_message
-    )
-
-    bot_response = bot_service.generate_response
-
-    if bot_response.nil?
-      Rails.logger.error "Failed to generate bot response for message #{user_message_id}"
-      handle_error(conversation, user_message)
-    else
-      # 成功時の追加処理
-      after_response_generated(conversation, bot_response)
-    end
+    bot_response = generate_bot_response(conversation, user_message)
+    handle_response(conversation, user_message, bot_response)
   rescue ActiveRecord::RecordNotFound => e
     Rails.logger.error "Record not found: #{e.message}"
   end
 
   private
+
+  def load_records(conversation_id, user_message_id)
+    [Conversation.find(conversation_id), Message.find(user_message_id)]
+  end
+
+  def valid_user_message?(user_message, conversation_id)
+    user_message.role == 'user' && user_message.conversation_id == conversation_id
+  end
+
+  def generate_bot_response(conversation, user_message)
+    ChatBotService.new(
+      conversation: conversation,
+      user_message: user_message
+    ).generate_response
+  end
+
+  def handle_response(conversation, user_message, bot_response)
+    if bot_response.nil?
+      Rails.logger.error "Failed to generate bot response for message #{user_message.id}"
+      handle_error(conversation, user_message)
+    else
+      broadcast_bot_message(conversation, bot_response)
+      after_response_generated(conversation, bot_response)
+    end
+  end
 
   # エラー時の処理
   def handle_error(conversation, user_message)
@@ -63,20 +71,14 @@ class BotResponseJob < ApplicationJob
 
   # 応答生成後の処理
   def after_response_generated(conversation, bot_response)
-    # 会話分析をトリガー（一定間隔で）
     AnalyzeConversationJob.perform_later(conversation.id) if should_analyze_conversation?(conversation)
-
-    # メトリクスを記録
     record_metrics(conversation, bot_response)
   end
 
-  # 会話分析が必要かチェック
   def should_analyze_conversation?(conversation)
-    # 10メッセージごとに分析
     (conversation.messages.count % 10).zero?
   end
 
-  # メトリクスを記録
   def record_metrics(conversation, bot_response)
     Rails.logger.info(
       {
@@ -89,7 +91,6 @@ class BotResponseJob < ApplicationJob
     )
   end
 
-  # エラーをWebSocketで配信
   def broadcast_error(conversation, error_message)
     ActionCable.server.broadcast(
       "conversation_#{conversation.id}",
@@ -100,6 +101,21 @@ class BotResponseJob < ApplicationJob
           content: error_message.content,
           role: error_message.role,
           created_at: error_message.created_at
+        }
+      }
+    )
+  end
+
+  def broadcast_bot_message(conversation, message)
+    ActionCable.server.broadcast(
+      "conversation_#{conversation.id}",
+      {
+        type: 'new_message',
+        message: {
+          id: message.id,
+          content: message.content,
+          role: message.role,
+          created_at: message.created_at
         }
       }
     )

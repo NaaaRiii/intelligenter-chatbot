@@ -1,0 +1,10 @@
+ja:
+  flash:
+    sessions:
+      expired: "セッションの有効期限が切れました"
+    messages:
+      blank: "メッセージを入力してください"
+      too_long: "メッセージは%{count}文字以内で入力してください"
+      invalid_chars: "不正な文字が含まれています"
+
+

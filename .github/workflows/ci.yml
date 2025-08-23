@@ -46,6 +46,28 @@ jobs:
           ruby-version: '3.2.8'
           bundler-cache: true
       
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install Node dependencies
+        run: npm ci
+      
+      - name: Build assets
+        run: |
+          npm run build
+          bundle exec rails assets:precompile
+      
+      - name: Setup Chrome for system tests
+        uses: browser-actions/setup-chrome@v1
+        with:
+          chrome-version: stable
+      
+      - name: Setup ChromeDriver
+        uses: nanasess/setup-chromedriver@v2
+      
       - name: Setup test database
         env:
           RAILS_ENV: test
@@ -58,6 +80,8 @@ jobs:
           RAILS_ENV: test
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/intelligenter_chatbot_test
           REDIS_URL: redis://localhost:6379/0
+          DISABLE_SPRING: 1
+          SELENIUM_DRIVER: headless_chrome
         run: |
           bundle exec rspec --format documentation --format RspecJunitFormatter --out tmp/rspec.xml
       

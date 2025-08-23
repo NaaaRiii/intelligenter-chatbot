@@ -38,9 +38,9 @@ RSpec.describe BotResponseJob, type: :job do
       end
 
       it '10メッセージごとに分析ジョブをエンキューする' do
-        # user_messageと合わせて9個のメッセージ（ボット応答が10個目になる）
-        8.times do
-          create(:message, conversation: conversation, role: 'user')
+        # user_messageと合わせて9個のメッセージを作成（ボット応答が10個目になる）
+        8.times do |i|
+          create(:message, conversation: conversation, role: i.even? ? 'user' : 'assistant')
         end
 
         expect do
@@ -50,6 +50,7 @@ RSpec.describe BotResponseJob, type: :job do
           )
         end.to have_enqueued_job(AnalyzeConversationJob)
           .with(conversation.id)
+          .on_queue('default')
       end
     end
 

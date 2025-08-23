@@ -33,7 +33,8 @@ class Analysis < ApplicationRecord
   end
 
   def escalate!
-    return if escalated?
+    # escalated_atが既に設定されている場合のみスキップ
+    return if escalated_at.present?
 
     update!(
       escalated: true,
@@ -55,9 +56,10 @@ class Analysis < ApplicationRecord
     analysis_data&.dig('sentiment', 'score')
   end
 
-  def confidence_score
-    analysis_data&.dig('confidence_score') || 0.0
-  end
+  # confidence_scoreは直接カラムとして存在するため、削除またはエイリアスメソッドとして残す
+  # def confidence_score
+  #   super || 0.0
+  # end
 
   def evidence_quotes
     analysis_data&.dig('evidence_quotes') || []

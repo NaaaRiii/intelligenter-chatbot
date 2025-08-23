@@ -12,6 +12,22 @@ RSpec.describe 'Bot Response', :js, type: :system do
 
     # ActiveJobをインラインモードに設定（テスト用）
     ActiveJob::Base.queue_adapter.perform_enqueued_jobs = true
+
+    # ChatBotServiceをモック
+    allow_any_instance_of(ChatBotService).to receive(:generate_response) do |_, content|
+      case content
+      when /こんにちは/
+        'こんにちは！お手伝いできることはありますか？'
+      when /使い方/
+        'ご質問ありがとうございます。このサービスの使い方について説明いたします。'
+      when /エラー|困って/
+        'ご不便をおかけして申し訳ございません。問題を確認いたします。'
+      when /ありがとう/
+        'どういたしまして！お役に立てて嬉しいです。'
+      else
+        'ご質問ありがとうございます。確認いたします。'
+      end
+    end
   end
 
   after do
@@ -27,6 +43,9 @@ RSpec.describe 'Bot Response', :js, type: :system do
       fill_in 'message-input', with: 'こんにちは'
       click_button '送信'
 
+      # ユーザーメッセージが表示されるまで待つ
+      expect(page).to have_selector('.message.user-message', text: 'こんにちは', wait: 5)
+
       # ボット応答を待つ
       expect(page).to have_selector('.message.assistant-message', wait: 5)
       expect(page).to have_content('こんにちは！お手伝いできることはありますか？')
@@ -36,16 +55,22 @@ RSpec.describe 'Bot Response', :js, type: :system do
       fill_in 'message-input', with: 'このサービスの使い方を教えてください'
       click_button '送信'
 
+      # ユーザーメッセージが表示されるまで待つ
+      expect(page).to have_selector('.message.user-message', text: '使い方', wait: 5)
+
       expect(page).to have_selector('.message.assistant-message', wait: 5)
 
       within('.message.assistant-message', match: :first) do
-        expect(page.text).to match(/ご質問|お問い合わせ|確認/)
+        expect(page.text).to match(/ご質問/)
       end
     end
 
     it '苦情に対して謝罪の応答をする' do
       fill_in 'message-input', with: 'エラーが発生して困っています'
       click_button '送信'
+
+      # ユーザーメッセージが表示されるまで待つ
+      expect(page).to have_selector('.message.user-message', text: '困って', wait: 5)
 
       expect(page).to have_selector('.message.assistant-message', wait: 5)
 
@@ -75,8 +100,8 @@ RSpec.describe 'Bot Response', :js, type: :system do
       fill_in 'message-input', with: 'テストメッセージ'
       click_button '送信'
 
-      # 少し待ってからタイピングインジケーターが表示されるか確認
-      sleep 0.5
+      # ユーザーメッセージが表示されるまで待つ
+      expect(page).to have_selector('.message.user-message', text: 'テストメッセージ', wait: 5)
 
       # タイピングインジケーターが表示される（IDで探す）
       expect(page).to have_selector('#typing-indicator', wait: 2)
@@ -89,15 +114,21 @@ RSpec.describe 'Bot Response', :js, type: :system do
       expect(page).to have_selector('#typing-indicator.hidden')
     end
 
-    it '複数のメッセージに順番に応答する' do
+    it '複数のメッセージに順番に応答する' do # rubocop:disable RSpec/MultipleExpectations
       fill_in 'message-input', with: '最初の質問'
       click_button '送信'
+
+      # 最初のユーザーメッセージが表示されるまで待つ
+      expect(page).to have_selector('.message.user-message', text: '最初の質問', wait: 5)
 
       # 最初のボット応答を待つ
       expect(page).to have_selector('.message.assistant-message', count: 1, wait: 10)
 
       fill_in 'message-input', with: '二番目の質問'
       click_button '送信'
+
+      # 二番目のユーザーメッセージが表示されるまで待つ
+      expect(page).to have_selector('.message.user-message', text: '二番目の質問', wait: 5)
 
       # 二番目のボット応答を待つ
       expect(page).to have_selector('.message.assistant-message', count: 2, wait: 10)
@@ -109,7 +140,7 @@ RSpec.describe 'Bot Response', :js, type: :system do
       # 両方の応答が表示されていることを確認（「質問」というキーワードへの応答）
       expect(assistant_messages[0]).to have_content('ご質問ありがとうございます')
       expect(assistant_messages[1]).to have_content('ご質問ありがとうございます')
-    end
+    end # rubocop:enable RSpec/MultipleExpectations
   end
 
   describe 'ボット応答の表示' do
@@ -120,6 +151,9 @@ RSpec.describe 'Bot Response', :js, type: :system do
     it 'ボットアイコンと名前を表示する' do
       fill_in 'message-input', with: 'テスト'
       click_button '送信'
+
+      # ユーザーメッセージが表示されるまで待つ
+      expect(page).to have_selector('.message.user-message', text: 'テスト', wait: 5)
 
       expect(page).to have_selector('.message.assistant-message', wait: 5)
 

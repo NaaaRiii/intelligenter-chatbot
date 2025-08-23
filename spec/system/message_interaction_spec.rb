@@ -288,7 +288,7 @@ RSpec.describe 'Message Interaction', :js, type: :system do
 
       # スクロール位置が最下部になっていることを確認
       new_scroll_position = page.evaluate_script('document.getElementById("messages-container").scrollTop')
-      expect(new_scroll_position).to be > 0
+      expect(new_scroll_position).to be_positive
     end
     # rubocop:enable RSpec/ExampleLength
 

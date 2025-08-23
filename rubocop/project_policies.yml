@@ -1,0 +1,25 @@
+# RSpec はプロジェクト方針に合わせて緩和
+RSpec/ContextWording:
+  Exclude: ["spec/**/*"]
+RSpec/AnyInstance:
+  Exclude: ["spec/**/*"]
+RSpec/MessageSpies:
+  Exclude: ["spec/**/*"]
+
+# Metrics の閾値（必要に応じて調整）
+Metrics/AbcSize:
+  Max: 25
+Metrics/MethodLength:
+  Max: 30
+Metrics/ClassLength:
+  Max: 200
+
+# 1行長
+Layout/LineLength:
+  Max: 140
+
+# Rails/Pluck は spec では無視
+Rails/Pluck:
+  Exclude: ["spec/**/*"]
+
+

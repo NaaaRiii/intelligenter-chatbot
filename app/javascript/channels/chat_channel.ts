@@ -50,7 +50,7 @@ export class ChatChannel {
       },
 
       received: (data: unknown) => {
-        const payload = data as any
+        const payload = data as { type?: string; message?: MessageData; messages?: MessageData[]; is_typing?: boolean } | Record<string, unknown>
         switch (payload.type) {
           case 'new_message':
             this.callbacks.onMessage?.(payload.message)
@@ -82,7 +82,7 @@ export class ChatChannel {
             break
           case 'typing':
             try {
-              const sup = (window as any).__SUPPRESS_TYPING_HIDE_UNTIL
+              const sup = (window as Window & { __SUPPRESS_TYPING_HIDE_UNTIL?: number }).__SUPPRESS_TYPING_HIDE_UNTIL
               if (typeof sup === 'number' && Date.now() < sup) {
                 const el = document.getElementById('typing-indicator') as HTMLElement | null
                 if (el) {
@@ -94,7 +94,7 @@ export class ChatChannel {
               }
               const el = document.getElementById('typing-indicator') as HTMLElement | null
               if (el) {
-                if ((payload as any)?.is_typing) {
+                if ((payload as { is_typing?: boolean })?.is_typing) {
                   el.classList.remove('hidden')
                   el.classList.add('bot-typing-indicator')
                   el.style.display = 'block'
@@ -126,8 +126,8 @@ export class ChatChannel {
             this.callbacks.onMessageRead?.(payload)
             break
           case 'batch_messages':
-            if (Array.isArray(payload.messages)) {
-              payload.messages.forEach((m: MessageData) => {
+            if (Array.isArray((payload as { messages?: MessageData[] }).messages)) {
+              ;((payload as { messages?: MessageData[] }).messages || []).forEach((m: MessageData) => {
                 this.callbacks.onMessage?.(m)
                 this.appendToDom(m)
               })
@@ -150,10 +150,10 @@ export class ChatChannel {
     )
 
     try {
-      const w = window as any
-      if (w.App && w.App.cable && w.App.cable.subscriptions && typeof w.App.cable.subscriptions.push === 'function') {
-        ;(this.subscription as any).identifier = JSON.stringify({ channel: 'ChatChannel', conversation_id: this.conversationId })
-        w.App.cable.subscriptions.push(this.subscription)
+      const w = window as Window & { App?: { cable?: { subscriptions?: { push?: (s: unknown) => void } } } }
+      if (w.App?.cable?.subscriptions?.push) {
+        ;(this.subscription as unknown as { identifier?: string }).identifier = JSON.stringify({ channel: 'ChatChannel', conversation_id: this.conversationId })
+        w.App.cable.subscriptions.push(this.subscription as unknown)
       }
     } catch { /* noop */ }
   }
@@ -169,9 +169,9 @@ export class ChatChannel {
     if (!this.subscription) return
     this.subscription.perform('send_message', { content })
     try {
-      const w: any = window as any
-      const sub = w.App?.cable?.subscriptions?.find?.((s: any) => String(s.identifier || '').includes('ChatChannel'))
-      if (sub && typeof sub.perform === 'function') {
+      const w = window as Window & { App?: { cable?: { subscriptions?: { find?: (fn: (s: { identifier?: string; perform?: (action: string, params?: unknown) => void }) => boolean) => { identifier?: string; perform?: (action: string, params?: unknown) => void } | undefined } } } }
+      const sub = w.App?.cable?.subscriptions?.find?.((s) => String(s.identifier || '').includes('ChatChannel'))
+      if (sub?.perform) {
         sub.perform('send_message', { content })
       }
     } catch { /* noop */ }

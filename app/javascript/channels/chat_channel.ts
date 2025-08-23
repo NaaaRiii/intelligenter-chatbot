@@ -50,13 +50,21 @@ export class ChatChannel {
       },
 
       received: (data: unknown) => {
-        const payload = data as { type?: string; message?: MessageData; messages?: MessageData[]; is_typing?: boolean } | Record<string, unknown>
+        const payload = data as { type?: string; message?: unknown; messages?: unknown; is_typing?: boolean } | Record<string, unknown>
+
+        const isMessageData = (v: unknown): v is MessageData => {
+          const m = v as Partial<MessageData> | undefined
+          return !!m && typeof m.id === 'number' && typeof m.content === 'string' && typeof m.role === 'string' && typeof m.created_at === 'string'
+        }
+        const asMessageArray = (v: unknown): MessageData[] => Array.isArray(v) ? v.filter(isMessageData) : []
         switch (payload.type) {
           case 'new_message':
-            this.callbacks.onMessage?.(payload.message)
-            this.appendToDom(payload.message)
+            if (isMessageData(payload.message)) {
+              this.callbacks.onMessage?.(payload.message)
+              this.appendToDom(payload.message)
+            }
             try {
-              if (payload?.message?.role === 'assistant') {
+              if (isMessageData(payload.message) && payload.message.role === 'assistant') {
                 const ti = document.getElementById('typing-indicator') as HTMLElement | null
                 if (ti) {
                   ti.classList.add('hidden')
@@ -67,7 +75,7 @@ export class ChatChannel {
             } catch { /* noop */ }
             break
           case 'bot_response':
-            if (payload.message) {
+            if (isMessageData(payload.message)) {
               this.callbacks.onMessage?.(payload.message)
               this.appendToDom(payload.message)
               try {
@@ -105,29 +113,40 @@ export class ChatChannel {
                 }
               }
             } catch { /* noop */ }
-            this.callbacks.onTyping?.(payload)
+            if ((payload as { user?: { id: number; name: string } ; is_typing?: boolean }).user) {
+              this.callbacks.onTyping?.(payload as { user: { id: number; name: string }; is_typing: boolean })
+            }
             break
           case 'user_connected':
-            this.callbacks.onUserConnected?.(payload)
+            if ((payload as { user?: { id: number; name: string; email: string } }).user) {
+              this.callbacks.onUserConnected?.(payload as { user: { id: number; name: string; email: string } })
+            }
             break
           case 'user_disconnected':
-            this.callbacks.onUserDisconnected?.(payload)
+            if ((payload as { user?: { id: number; name: string; email: string } }).user) {
+              this.callbacks.onUserDisconnected?.(payload as { user: { id: number; name: string; email: string } })
+            }
             break
           case 'error':
-            this.callbacks.onError?.(payload)
+            if ((payload as { message?: string }).message) {
+              this.callbacks.onError?.(payload as { message: string; errors?: string[] })
+            }
             break
           case 'bot_error':
-            if (payload.message) {
+            if (isMessageData(payload.message)) {
               this.callbacks.onMessage?.(payload.message)
               this.appendToDom(payload.message)
             }
             break
           case 'message_read':
-            this.callbacks.onMessageRead?.(payload)
+            if ((payload as { message_id?: number; user_id?: number; timestamp?: string }).message_id) {
+              this.callbacks.onMessageRead?.(payload as { message_id: number; user_id: number; timestamp: string })
+            }
             break
           case 'batch_messages':
-            if (Array.isArray((payload as { messages?: MessageData[] }).messages)) {
-              ;((payload as { messages?: MessageData[] }).messages || []).forEach((m: MessageData) => {
+            const list = asMessageArray((payload as { messages?: unknown }).messages)
+            if (list.length) {
+              list.forEach((m: MessageData) => {
                 this.callbacks.onMessage?.(m)
                 this.appendToDom(m)
               })

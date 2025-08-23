@@ -5,7 +5,7 @@ import "./typing_indicator_manager"
 
 // ActionCable設定
 import * as ActionCable from "@rails/actioncable"
-import type { AppGlobal, SubscriptionLike } from "./types/global"
+import type { AppGlobal, SubscriptionLike, AppCable } from "./types/global"
 
 interface ExtendedWindow extends Window {
   ActionCable: typeof ActionCable
@@ -18,7 +18,9 @@ interface ExtendedWindow extends Window {
 ;(window as unknown as ExtendedWindow).App = (window as unknown as ExtendedWindow).App || {}
 try {
   const w = window as unknown as ExtendedWindow
-  w.App.cable = w.App.cable || ActionCable.createConsumer()
+  w.App = w.App || ({} as AppGlobal)
+  const consumer = ActionCable.createConsumer()
+  const appCable: AppCable = (w.App.cable ||= { } as AppCable)
 
   // subscriptionsをラッパ化。findが必ずオブジェクトを返すよう保証
   const subs: SubscriptionLike[] = []
@@ -43,16 +45,18 @@ try {
       return last || { received: (_d: unknown) => { void 0 }, perform: (_a: string, _p?: unknown) => { void 0 } }
     }
   }
-  w.App.cable.subscriptions = wrapper
+  appCable.subscriptions = wrapper
 
-  if (typeof w.App.cable.disconnect !== 'function') {
-    w.App.cable.disconnect = function () {
+  if (typeof appCable.disconnect !== 'function') {
+    appCable.disconnect = function () {
       window.dispatchEvent(new CustomEvent('appCableDisconnected'))
+      try { consumer.disconnect() } catch { /* noop */ }
     }
   }
-  if (typeof w.App.cable.connect !== 'function') {
-    w.App.cable.connect = function () {
+  if (typeof appCable.connect !== 'function') {
+    appCable.connect = function () {
       window.dispatchEvent(new CustomEvent('appCableReconnected'))
+      try { consumer.connect() } catch { /* noop */ }
     }
   }
 } catch { void 0 }

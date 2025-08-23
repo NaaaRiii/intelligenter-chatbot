@@ -33,7 +33,14 @@
     <% end %>
   </header>
 
-  <div id="alerts" class="p-2 text-center text-sm"></div>
+  <div id="alerts" class="p-2 text-center text-sm">
+    <% if flash[:alert] %>
+      <div class="bg-red-100 text-red-700 p-2 rounded"><%= flash[:alert] %></div>
+    <% end %>
+    <% if flash[:notice] %>
+      <div class="bg-green-100 text-green-700 p-2 rounded"><%= flash[:notice] %></div>
+    <% end %>
+  </div>
   <div class="error-message hidden text-red-700 text-center p-2">接続エラー</div>
   <% if @current_user.nil? %>
     <div class="p-2 bg-yellow-100 text-yellow-800 text-center">
@@ -478,8 +485,18 @@
 
       // WebSocket非対応の案内
       if(typeof window.WebSocket === 'undefined'){
-        const note = document.createElement('div'); note.textContent = 'WebSocketが利用できません'; document.body.appendChild(note);
-        const note2 = document.createElement('div'); note2.textContent = '定期的に更新します'; document.body.appendChild(note2);
+        const alertsDiv = document.getElementById('alerts');
+        if(alertsDiv) {
+          const note = document.createElement('div'); 
+          note.className = 'bg-yellow-100 text-yellow-800 p-2 rounded mb-2';
+          note.textContent = 'WebSocketが利用できません'; 
+          alertsDiv.appendChild(note);
+          
+          const note2 = document.createElement('div'); 
+          note2.className = 'bg-yellow-100 text-yellow-800 p-2 rounded';
+          note2.textContent = '定期的に更新します'; 
+          alertsDiv.appendChild(note2);
+        }
         // 簡易ポーリング
         var convId = <%= @conversation&.id || 'null' %>;
         if(convId){ setInterval(function(){ fetch('/api/v1/conversations/' + convId + '/messages').then(r=>r.json()).then(j=>{
@@ -492,8 +509,86 @@
       if(form && textarea){
         // Stimulus有効時はインライン送信を完全停止
         try { var dc = document.querySelector('[data-controller~="chat"]'); if(dc){ /* noop */ return; } } catch(_){ }
-        // ここから下はStimulusが無い場合の最低限フォールバックのみ
-        form.addEventListener('submit', function(e){ e.preventDefault(); });
+        
+        // バリデーションエラー表示用の要素を作成
+        var validationError = document.createElement('div');
+        validationError.className = 'validation-error text-red-600 text-sm mt-1';
+        validationError.style.display = 'none';
+        validationError.textContent = 'メッセージを入力してください';
+        textarea.parentNode.appendChild(validationError);
+        
+        // メッセージ送信処理を関数化（テストから呼び出し可能）
+        window.sendMessage = function() {
+          // アラート要素を取得または作成
+          var alertsDiv = document.getElementById('alerts');
+          if(!alertsDiv) {
+            alertsDiv = document.createElement('div');
+            alertsDiv.id = 'alerts';
+            alertsDiv.className = 'fixed top-4 right-4 z-50';
+            document.body.appendChild(alertsDiv);
+          }
+          
+          // バリデーション
+          if(textarea.value.trim() === '') {
+            alertsDiv.textContent = 'メッセージを入力してください';
+            alertsDiv.classList.add('bg-red-100', 'text-red-700', 'p-4', 'rounded');
+            validationError.style.display = 'block';
+            return false;
+          }
+          
+          // 文字数チェック（2000文字制限）
+          if(textarea.value.length > 2000) {
+            alertsDiv.textContent = 'メッセージは2000文字以内で入力してください';
+            alertsDiv.classList.add('bg-red-100', 'text-red-700', 'p-4', 'rounded');
+            return false;
+          }
+          
+          // 不正な文字（制御文字）のチェック
+          // 制御文字（0x00-0x1F, 0x7F）を検出（改行とタブは除く）
+          if(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/.test(textarea.value)) {
+            alertsDiv.textContent = '不正な文字が含まれています';
+            alertsDiv.classList.add('bg-red-100', 'text-red-700', 'p-4', 'rounded');
+            return false;
+          }
+          
+          // エラーメッセージをクリア
+          alertsDiv.textContent = '';
+          alertsDiv.className = 'fixed top-4 right-4 z-50';
+          validationError.style.display = 'none';
+          
+          var messageContent = textarea.value;
+          
+          // メッセージをDOMに追加
+          appendMessage({ role: 'user', content: messageContent, id: Date.now() });
+          
+          // データベースに保存（Ajax）
+          if(window.App && window.App.chatChannel) {
+            window.App.chatChannel.send({ content: messageContent });
+          }
+          
+          textarea.value = '';
+          
+          // ボット応答をトリガー
+          if(window.triggerBotResponse) {
+            window.triggerBotResponse(messageContent);
+          }
+          
+          return true;
+        };
+        
+        // フォーム送信時のバリデーション
+        form.addEventListener('submit', function(e){ 
+          e.preventDefault(); 
+          window.sendMessage();
+        });
+        
+        // Enterキーでの送信処理
+        textarea.addEventListener('keydown', function(e) {
+          if(e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            window.sendMessage();
+          }
+        });
       }
 
       // 他タブからのメッセージ同期
@@ -525,8 +620,18 @@
         var reportBtn = document.getElementById('report-error-button');
         if(reportBtn){
           reportBtn.addEventListener('click', function(){
-            var ok=document.createElement('div'); ok.textContent='エラーレポートを送信しました'; document.body.appendChild(ok);
-            var ok2=document.createElement('div'); ok2.textContent='サポートチームが確認します'; document.body.appendChild(ok2);
+            // 成功メッセージを表示
+            var successMsg = document.createElement('div');
+            successMsg.style.cssText = 'position:fixed;top:80px;left:50%;transform:translateX(-50%);background-color:#10b981;color:white;padding:12px 24px;border-radius:8px;box-shadow:0 4px 6px rgba(0,0,0,0.1);z-index:9999;';
+            successMsg.innerHTML = '<div>エラーレポートを送信しました</div><div style="font-size:14px;margin-top:4px;">サポートチームが確認します</div>';
+            document.body.appendChild(successMsg);
+            
+            // 3秒後に自動的に消す
+            setTimeout(function(){
+              if(successMsg && successMsg.parentNode){
+                successMsg.parentNode.removeChild(successMsg);
+              }
+            }, 3000);
           });
         }
       } catch(e) { /* noop */ }

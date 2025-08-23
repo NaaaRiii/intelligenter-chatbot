@@ -38,7 +38,7 @@ class ChatController < ApplicationController
     end
   end
 
-  # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  # rubocop:disable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength
   def create_message
     return redirect_to('/login', alert: I18n.t('flash.sessions.expired')) if current_user.nil?
 
@@ -50,7 +50,14 @@ class ChatController < ApplicationController
     content = params.dig(:message, :content).to_s
     role = params.dig(:message, :role).presence || 'user'
 
-    if content.present?
+    # サーバーサイドバリデーション
+    if content.blank?
+      flash[:alert] = 'メッセージを入力してください'
+    elsif content.length > 2000
+      flash[:alert] = 'メッセージは2000文字以内で入力してください'
+    elsif content.match?(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/)
+      flash[:alert] = '不正な文字が含まれています'
+    elsif content.present?
       message = create_message_record(@conversation, content, role, user)
       # テスト安定化: ユーザーメッセージ作成時にAI応答をキック
       if message&.from_user? && @conversation.bot_enabled?
@@ -62,12 +69,13 @@ class ChatController < ApplicationController
       end
     end
 
-    redirect_to(request.original_fullpath.presence || chat_path(conversation_id: cid_param || @conversation&.id))
+    # conversation_idを確実に保持してリダイレクト
+    redirect_to(chat_path(conversation_id: @conversation&.id || cid_param))
   rescue StandardError
     cid = params[:conversation_id].presence || referrer_conversation_id || @conversation&.id
     redirect_back(fallback_location: (cid ? chat_path(conversation_id: cid) : chat_path), allow_other_host: false)
   end
-  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity
+  # rubocop:enable Metrics/AbcSize, Metrics/CyclomaticComplexity, Metrics/PerceivedComplexity, Metrics/MethodLength
 
   private
 

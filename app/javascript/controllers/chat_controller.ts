@@ -183,8 +183,13 @@ export default class extends Controller<HTMLElement> {
       this.handleError({ message: 'メッセージを入力してください' })
       return
     }
-    if (content.length > 5000) {
-      this.handleError({ message: 'メッセージは5000文字以内で入力してください' })
+    // 制御文字のバリデーション (NULL等の不可視制御文字を拒否)
+    if (/[\u0000-\u001F\u007F]/.test(content)) {
+      this.handleError({ message: '不正な文字が含まれています' })
+      return
+    }
+    if (content.length > 2000) {
+      this.handleError({ message: 'メッセージは2000文字以内で入力してください' })
       return
     }
 

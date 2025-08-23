@@ -50,13 +50,21 @@ export class ChatChannel {
       },
 
       received: (data: unknown) => {
-        const payload = data as any
+        const payload = data as { type?: string; message?: unknown; messages?: unknown; is_typing?: boolean } | Record<string, unknown>
+
+        const isMessageData = (v: unknown): v is MessageData => {
+          const m = v as Partial<MessageData> | undefined
+          return !!m && typeof m.id === 'number' && typeof m.content === 'string' && typeof m.role === 'string' && typeof m.created_at === 'string'
+        }
+        const asMessageArray = (v: unknown): MessageData[] => Array.isArray(v) ? v.filter(isMessageData) : []
         switch (payload.type) {
           case 'new_message':
-            this.callbacks.onMessage?.(payload.message)
-            this.appendToDom(payload.message)
+            if (isMessageData(payload.message)) {
+              this.callbacks.onMessage?.(payload.message)
+              this.appendToDom(payload.message)
+            }
             try {
-              if (payload?.message?.role === 'assistant') {
+              if (isMessageData(payload.message) && payload.message.role === 'assistant') {
                 const ti = document.getElementById('typing-indicator') as HTMLElement | null
                 if (ti) {
                   ti.classList.add('hidden')
@@ -67,7 +75,7 @@ export class ChatChannel {
             } catch { /* noop */ }
             break
           case 'bot_response':
-            if (payload.message) {
+            if (isMessageData(payload.message)) {
               this.callbacks.onMessage?.(payload.message)
               this.appendToDom(payload.message)
               try {
@@ -82,7 +90,7 @@ export class ChatChannel {
             break
           case 'typing':
             try {
-              const sup = (window as any).__SUPPRESS_TYPING_HIDE_UNTIL
+              const sup = (window as Window & { __SUPPRESS_TYPING_HIDE_UNTIL?: number }).__SUPPRESS_TYPING_HIDE_UNTIL
               if (typeof sup === 'number' && Date.now() < sup) {
                 const el = document.getElementById('typing-indicator') as HTMLElement | null
                 if (el) {
@@ -94,7 +102,7 @@ export class ChatChannel {
               }
               const el = document.getElementById('typing-indicator') as HTMLElement | null
               if (el) {
-                if ((payload as any)?.is_typing) {
+                if ((payload as { is_typing?: boolean })?.is_typing) {
                   el.classList.remove('hidden')
                   el.classList.add('bot-typing-indicator')
                   el.style.display = 'block'
@@ -105,34 +113,46 @@ export class ChatChannel {
                 }
               }
             } catch { /* noop */ }
-            this.callbacks.onTyping?.(payload)
+            if ((payload as { user?: { id: number; name: string } ; is_typing?: boolean }).user) {
+              this.callbacks.onTyping?.(payload as { user: { id: number; name: string }; is_typing: boolean })
+            }
             break
           case 'user_connected':
-            this.callbacks.onUserConnected?.(payload)
+            if ((payload as { user?: { id: number; name: string; email: string } }).user) {
+              this.callbacks.onUserConnected?.(payload as { user: { id: number; name: string; email: string } })
+            }
             break
           case 'user_disconnected':
-            this.callbacks.onUserDisconnected?.(payload)
+            if ((payload as { user?: { id: number; name: string; email: string } }).user) {
+              this.callbacks.onUserDisconnected?.(payload as { user: { id: number; name: string; email: string } })
+            }
             break
           case 'error':
-            this.callbacks.onError?.(payload)
+            if ((payload as { message?: string }).message) {
+              this.callbacks.onError?.(payload as { message: string; errors?: string[] })
+            }
             break
           case 'bot_error':
-            if (payload.message) {
+            if (isMessageData(payload.message)) {
               this.callbacks.onMessage?.(payload.message)
               this.appendToDom(payload.message)
             }
             break
           case 'message_read':
-            this.callbacks.onMessageRead?.(payload)
+            if ((payload as { message_id?: number; user_id?: number; timestamp?: string }).message_id) {
+              this.callbacks.onMessageRead?.(payload as { message_id: number; user_id: number; timestamp: string })
+            }
             break
-          case 'batch_messages':
-            if (Array.isArray(payload.messages)) {
-              payload.messages.forEach((m: MessageData) => {
+          case 'batch_messages': {
+            const list = asMessageArray((payload as { messages?: unknown }).messages)
+            if (list.length) {
+              list.forEach((m: MessageData) => {
                 this.callbacks.onMessage?.(m)
                 this.appendToDom(m)
               })
             }
             break
+          }
           default:
             // noop
         }
@@ -150,10 +170,10 @@ export class ChatChannel {
     )
 
     try {
-      const w = window as any
-      if (w.App && w.App.cable && w.App.cable.subscriptions && typeof w.App.cable.subscriptions.push === 'function') {
-        ;(this.subscription as any).identifier = JSON.stringify({ channel: 'ChatChannel', conversation_id: this.conversationId })
-        w.App.cable.subscriptions.push(this.subscription)
+      const w = window as Window & { App?: { cable?: { subscriptions?: { push?: (s: unknown) => void } } } }
+      if (w.App?.cable?.subscriptions?.push) {
+        ;(this.subscription as unknown as { identifier?: string }).identifier = JSON.stringify({ channel: 'ChatChannel', conversation_id: this.conversationId })
+        w.App.cable.subscriptions.push(this.subscription as unknown)
       }
     } catch { /* noop */ }
   }
@@ -169,9 +189,9 @@ export class ChatChannel {
     if (!this.subscription) return
     this.subscription.perform('send_message', { content })
     try {
-      const w: any = window as any
-      const sub = w.App?.cable?.subscriptions?.find?.((s: any) => String(s.identifier || '').includes('ChatChannel'))
-      if (sub && typeof sub.perform === 'function') {
+      const w = window as Window & { App?: { cable?: { subscriptions?: { find?: (fn: (s: { identifier?: string; perform?: (action: string, params?: unknown) => void }) => boolean) => { identifier?: string; perform?: (action: string, params?: unknown) => void } | undefined } } } }
+      const sub = w.App?.cable?.subscriptions?.find?.((s) => String(s.identifier || '').includes('ChatChannel'))
+      if (sub?.perform) {
         sub.perform('send_message', { content })
       }
     } catch { /* noop */ }

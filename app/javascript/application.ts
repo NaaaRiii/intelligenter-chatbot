@@ -5,10 +5,11 @@ import "./typing_indicator_manager"
 
 // ActionCable設定
 import * as ActionCable from "@rails/actioncable"
+import type { AppGlobal, SubscriptionLike, AppCable } from "./types/global"
 
 interface ExtendedWindow extends Window {
   ActionCable: typeof ActionCable
-  App: any
+  App: AppGlobal
 }
 
 ;(window as unknown as ExtendedWindow).ActionCable = ActionCable
@@ -17,21 +18,23 @@ interface ExtendedWindow extends Window {
 ;(window as unknown as ExtendedWindow).App = (window as unknown as ExtendedWindow).App || {}
 try {
   const w = window as unknown as ExtendedWindow
-  w.App.cable = w.App.cable || ActionCable.createConsumer()
+  w.App = w.App || ({} as AppGlobal)
+  const consumer = ActionCable.createConsumer()
+  const appCable: AppCable = (w.App.cable ||= { } as AppCable)
 
   // subscriptionsをラッパ化。findが必ずオブジェクトを返すよう保証
-  const subs: any[] = []
+  const subs: SubscriptionLike[] = []
   const wrapper = {
     list: subs,
-    push(sub: any) {
+    push(sub: SubscriptionLike) {
       const wrapped = {
         identifier: typeof sub.identifier === 'string' ? sub.identifier : JSON.stringify(sub.identifier || {}),
-        received: typeof sub.received === 'function' ? sub.received.bind(sub) : (_d: any) => { void 0 },
-        perform: typeof sub.perform === 'function' ? sub.perform.bind(sub) : (_a: string, _p?: any) => { void 0 }
+        received: typeof sub.received === 'function' ? sub.received.bind(sub) : (_d: unknown) => { void 0 },
+        perform: typeof sub.perform === 'function' ? sub.perform.bind(sub) : (_a: string, _p?: unknown) => { void 0 }
       }
       subs.push(wrapped)
     },
-    find(fn: (s: any) => boolean): any {
+    find(fn: (s: SubscriptionLike) => boolean): SubscriptionLike | undefined {
       for (const s of subs) {
         try {
           if (fn(s)) return s
@@ -39,19 +42,21 @@ try {
       }
       // フォールバック: 最後のsubscriptionかダミー
       const last = subs[subs.length - 1]
-      return last || { received: (_d: any) => { void 0 }, perform: (_a: string, _p?: any) => { void 0 } }
+      return last || { received: (_d: unknown) => { void 0 }, perform: (_a: string, _p?: unknown) => { void 0 } }
     }
   }
-  w.App.cable.subscriptions = wrapper
+  appCable.subscriptions = wrapper
 
-  if (typeof w.App.cable.disconnect !== 'function') {
-    w.App.cable.disconnect = function () {
+  if (typeof appCable.disconnect !== 'function') {
+    appCable.disconnect = function () {
       window.dispatchEvent(new CustomEvent('appCableDisconnected'))
+      try { consumer.disconnect() } catch { /* noop */ }
     }
   }
-  if (typeof w.App.cable.connect !== 'function') {
-    w.App.cable.connect = function () {
+  if (typeof appCable.connect !== 'function') {
+    appCable.connect = function () {
       window.dispatchEvent(new CustomEvent('appCableReconnected'))
+      try { consumer.connect() } catch { /* noop */ }
     }
   }
 } catch { void 0 }

@@ -1,6 +1,7 @@
 plugins:
   - rubocop-rails
   - rubocop-rspec
+  - rubocop-performance
 
 AllCops:
   NewCops: enable
@@ -74,3 +75,8 @@ Layout/LineLength:
   Max: 120
   Exclude:
     - 'spec/system/**/*'
+
+inherit_from:
+  - rubocop/security.yml
+  - rubocop/project_policies.yml
+  - .rubocop_todo.yml

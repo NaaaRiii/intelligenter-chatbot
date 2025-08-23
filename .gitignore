@@ -1,3 +1,5 @@
+ruboCop/*.md
+rubocop/*.md
 # 既存のプロジェクトファイル（計画段階）
 /課題について/
 CLAUDE.md

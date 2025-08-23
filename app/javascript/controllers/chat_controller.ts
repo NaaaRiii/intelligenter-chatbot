@@ -6,7 +6,7 @@ interface Message {
   content: string
   role: 'user' | 'assistant' | 'system'
   created_at: string
-  metadata?: Record<string, any>
+  metadata?: Record<string, unknown>
 }
 
 // チャット画面のStimulusコントローラー
@@ -140,7 +140,7 @@ export default class extends Controller<HTMLElement> {
   // 再接続ボタン
   reconnect = (): void => {
     try {
-      ;(window as any).App?.cable?.connect?.()
+      ;(window as Window & { App?: { cable?: { connect?: () => void } } }).App?.cable?.connect?.()
     } catch { /* noop */ }
     this.initializeWebSocket()
   }
@@ -172,7 +172,7 @@ export default class extends Controller<HTMLElement> {
     event.preventDefault()
 
     try {
-      if ((window.navigator as any) && (window.navigator as any).onLine === false) {
+      if (typeof window.navigator !== 'undefined' && (window.navigator as Navigator & { onLine?: boolean }).onLine === false) {
         this.handleError({ message: 'オフライン中はメッセージを送信できません' })
         return
       }
@@ -199,7 +199,7 @@ export default class extends Controller<HTMLElement> {
 
     // 送信直前にタイピング表示（テスト環境でも確実に表示）
     this.showTypingIndicator()
-    try { (window as any).__SUPPRESS_TYPING_HIDE_UNTIL = Date.now() + 1500 } catch { /* noop */ }
+    try { (window as Window & { __SUPPRESS_TYPING_HIDE_UNTIL?: number }).__SUPPRESS_TYPING_HIDE_UNTIL = Date.now() + 1500 } catch { /* noop */ }
 
     const optimistic: Message = {
       id: Date.now(),
@@ -218,8 +218,8 @@ export default class extends Controller<HTMLElement> {
     let isMockedXHR = false
     let isMockedFetch = false
     try {
-      isMockedXHR = typeof (window as any).XMLHttpRequest === 'function' && !String((window as any).XMLHttpRequest).includes('[native code]')
-      isMockedFetch = typeof (window as any).fetch === 'function' && !String((window as any).fetch).includes('[native code]')
+      isMockedXHR = typeof XMLHttpRequest === 'function' && !String(XMLHttpRequest).includes('[native code]')
+      isMockedFetch = typeof window.fetch === 'function' && !String(window.fetch).includes('[native code]')
       if (isMockedXHR || isMockedFetch) forceRest = true
     } catch { /* noop */ }
 
@@ -244,8 +244,9 @@ export default class extends Controller<HTMLElement> {
       sentViaWs = false
     }
 
-    if (!sentViaWs || ((window as any).App && (window as any).App.forceRest)) {
-      const useNativeFetch = (typeof (window as any).fetch === 'function') && String((window as any).fetch).includes('[native code]')
+    const appGlobal = (window as Window & { App?: { forceRest?: boolean } }).App
+    if (!sentViaWs || Boolean(appGlobal?.forceRest)) {
+      const useNativeFetch = (typeof window.fetch === 'function') && String(window.fetch).includes('[native code]')
       if (useNativeFetch) {
         this.sendViaXhrSync(content)
       } else {
@@ -397,7 +398,7 @@ export default class extends Controller<HTMLElement> {
       if (this.hasTypingIndicatorTarget) {
         this.typingIndicatorTarget.classList.remove('hidden')
         this.typingIndicatorTarget.classList.add('bot-typing-indicator')
-        ;(this.typingIndicatorTarget as any).style.display = 'block'
+        ;(this.typingIndicatorTarget as HTMLElement).style.display = 'block'
       } else {
         const el = document.getElementById('typing-indicator') as HTMLElement | null
         if (el) {
@@ -413,7 +414,7 @@ export default class extends Controller<HTMLElement> {
     if (this.hasTypingIndicatorTarget) {
       this.typingIndicatorTarget.classList.add('hidden')
       try { this.typingIndicatorTarget.classList.remove('bot-typing-indicator') } catch { /* noop */ }
-      try { (this.typingIndicatorTarget as any).style.display = 'none' } catch { /* noop */ }
+      try { (this.typingIndicatorTarget as HTMLElement).style.display = 'none' } catch { /* noop */ }
     }
   }
 
@@ -455,8 +456,8 @@ export default class extends Controller<HTMLElement> {
       if (!form || !textarea) return
 
       // 既存の属性ハンドラーを無効化
-      try { (form as any).onsubmit = null } catch { /* noop */ }
-      try { (textarea as any).onkeydown = null } catch { /* noop */ }
+      try { (form as unknown as { onsubmit: null }).onsubmit = null } catch { /* noop */ }
+      try { (textarea as unknown as { onkeydown: null }).onkeydown = null } catch { /* noop */ }
 
       // 送信イベントをキャプチャ段階で専有
       this.boundSubmitInterceptor = (e: Event) => {
@@ -480,7 +481,7 @@ export default class extends Controller<HTMLElement> {
 
   private async startPollingIfNoWebSocket(): Promise<void> {
     try {
-      if (typeof (window as any).WebSocket !== 'undefined') return
+      if (typeof window.WebSocket !== 'undefined') return
       this.showAlertText('WebSocketが利用できません')
       this.showAlertText('定期的に更新します')
       const conversationId = this.conversationIdValue
@@ -543,9 +544,9 @@ export default class extends Controller<HTMLElement> {
       if (!res.ok) {
         this.handleError({ message: 'サーバーエラーが発生しました' })
       }
-    } catch (e: any) {
-      const msg = String(e?.message || '')
-      if (e?.name === 'AbortError' || msg.includes('Timeout') || msg.includes('timeout')) {
+    } catch (e: unknown) {
+      const msg = String((e as Error)?.message || '')
+      if ((e as Error & { name?: string })?.name === 'AbortError' || msg.includes('Timeout') || msg.includes('timeout')) {
         this.handleError({ message: 'リクエストがタイムアウトしました' })
       } else {
         this.handleError({ message: 'メッセージの送信に失敗しました' })

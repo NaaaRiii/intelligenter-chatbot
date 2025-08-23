@@ -1,0 +1,42 @@
+Security/Open:
+  Enabled: true
+Security/JSONLoad:
+  Enabled: true
+Security/YAMLLoad:
+  Enabled: true
+Security/MarshalLoad:
+  Enabled: true
+
+Rails/OutputSafety:
+  Enabled: true
+
+Security/Eval:
+  Enabled: true
+Lint/Syntax:
+  Enabled: true
+Lint/AmbiguousBlockAssociation:
+  Enabled: true
+Lint/AmbiguousOperatorPrecedence:
+  Enabled: true
+Lint/ShadowedException:
+  Enabled: true
+Lint/RescueException:
+  Enabled: true
+Style/RescueStandardError:
+  Enabled: true
+Lint/NonDeterministicRequireOrder:
+  Enabled: true
+
+Rails/SkipsModelValidations:
+  Enabled: true
+Rails/TimeZone:
+  Enabled: true
+Rails/FindEach:
+  Enabled: true
+
+Performance:
+  Enabled: true
+Rails/Pluck:
+  Enabled: true
+
+

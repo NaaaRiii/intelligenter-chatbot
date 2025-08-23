@@ -96,7 +96,7 @@ RSpec.describe Message, type: :model do
 
     it 'handles Japanese text' do
       message = build(:message, content: 'これはテストメッセージです')
-      expect(message.word_count).to be > 0
+      expect(message.word_count).to be_positive
     end
   end
 end

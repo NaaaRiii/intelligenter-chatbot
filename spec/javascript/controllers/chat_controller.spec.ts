@@ -23,7 +23,9 @@ describe('ChatController', () => {
       </div>
     `
 
-    element = document.querySelector('[data-controller="chat"]')!
+    const found = document.querySelector('[data-controller="chat"]')
+    expect(found).not.toBeNull()
+    element = found as HTMLElement
     application = Application.start()
     application.register('chat', ChatController)
   })
@@ -35,7 +37,8 @@ describe('ChatController', () => {
 
   it('文字数カウントが更新される', async () => {
     const input = element.querySelector('[data-chat-target="messageInput"]') as HTMLTextAreaElement
-    const charCount = element.querySelector('[data-chat-target="charCount"]')!
+    const charCount = element.querySelector('[data-chat-target="charCount"]')
+    expect(charCount).not.toBeNull()
 
     input.value = 'テストメッセージ'
     input.dispatchEvent(new Event('input'))

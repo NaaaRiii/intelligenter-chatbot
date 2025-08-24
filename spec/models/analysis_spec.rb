@@ -62,10 +62,10 @@ RSpec.describe Analysis, type: :model do
              })
     end
 
-    it 'returns array of hidden needs' do
-      expect(analysis.hidden_needs).to be_an(Array)
-      expect(analysis.hidden_needs.size).to eq(2)
-      expect(analysis.hidden_needs.first['need_type']).to eq('efficiency')
+    it 'returns array of hidden needs from data' do
+      expect(analysis.hidden_needs_from_data).to be_an(Array)
+      expect(analysis.hidden_needs_from_data.size).to eq(2)
+      expect(analysis.hidden_needs_from_data.first['need_type']).to eq('efficiency')
     end
   end
 

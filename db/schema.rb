@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_08_23_072908) do
+ActiveRecord::Schema[7.1].define(version: 2025_08_24_131320) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -29,7 +29,12 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_23_072908) do
     t.text "escalation_reason"
     t.datetime "analyzed_at"
     t.float "confidence_score"
+    t.string "customer_sentiment"
+    t.text "escalation_reasons"
+    t.index ["analyzed_at"], name: "index_analyses_on_analyzed_at"
     t.index ["conversation_id"], name: "index_analyses_on_conversation_id"
+    t.index ["customer_sentiment"], name: "index_analyses_on_customer_sentiment"
+    t.index ["hidden_needs"], name: "index_analyses_on_hidden_needs", using: :gin
   end
 
   create_table "conversations", force: :cascade do |t|

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# rubocop:disable RSpec/AnyInstance, RSpec/ContextWording, RSpec/MessageSpies
+# rubocop:disable RSpec/ContextWording, RSpec/MessageSpies
 
 require 'rails_helper'
 
@@ -244,4 +244,4 @@ RSpec.describe AnalyzeConversationJob, type: :job do
     end
   end
 end
-# rubocop:enable RSpec/AnyInstance, RSpec/ContextWording, RSpec/MessageSpies
+# rubocop:enable RSpec/ContextWording, RSpec/MessageSpies

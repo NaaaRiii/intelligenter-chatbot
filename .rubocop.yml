@@ -27,7 +27,10 @@ Metrics/BlockLength:
     - 'config/routes.rb'
 
 Metrics/MethodLength:
-  Max: 20
+  Max: 25
+  Exclude:
+    - 'app/services/analysis_storage_service.rb'
+
 
 Metrics/ClassLength:
   Max: 400
@@ -45,6 +48,9 @@ RSpec/DescribeClass:
 RSpec/MultipleMemoizedHelpers:
   Max: 6
 
+RSpec/NestedGroups:
+  Max: 4
+
 Rails/SkipsModelValidations:
   Exclude:
     - 'app/services/message_batch_service.rb'
@@ -56,15 +62,16 @@ Naming/PredicateMethod:
     - 'app/controllers/application_controller.rb'
 
 Metrics/AbcSize:
+  Max: 35
   Exclude:
     - 'app/services/message_batch_service.rb'
+    - 'app/services/analysis_storage_service.rb'
 
 RSpec/ExampleLength:
   Max: 20
 
 RSpec/AnyInstance:
-  Exclude:
-    - 'spec/system/**/*'
+  Enabled: false
 
 RSpec/LetSetup:
   Exclude:

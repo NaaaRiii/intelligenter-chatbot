@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# rubocop:disable RSpec/ContextWording, RSpec/AnyInstance, RSpec/NestedGroups
+# rubocop:disable RSpec/ContextWording
 
 require 'rails_helper'
 
@@ -226,4 +226,4 @@ RSpec.describe ClaudeApiService, type: :service do
     end
   end
 end
-# rubocop:enable RSpec/ContextWording, RSpec/AnyInstance, RSpec/NestedGroups
+# rubocop:enable RSpec/ContextWording

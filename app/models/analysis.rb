@@ -15,6 +15,12 @@ class Analysis < ApplicationRecord
                              allow_nil: true
   validates :sentiment, inclusion: { in: SENTIMENTS },
                         allow_nil: true
+  validates :customer_sentiment, inclusion: { in: SENTIMENTS },
+                                 allow_nil: true
+  validates :confidence_score, numericality: {
+    greater_than_or_equal_to: 0,
+    less_than_or_equal_to: 1
+  }, allow_nil: true
 
   # デリゲーション
   delegate :user, to: :conversation
@@ -42,14 +48,14 @@ class Analysis < ApplicationRecord
     )
   end
 
-  def hidden_needs
+  def hidden_needs_from_data
     return [] unless analysis_data && analysis_data['hidden_needs']
 
     analysis_data['hidden_needs']
   end
 
   def extract_hidden_needs
-    hidden_needs
+    hidden_needs_from_data
   end
 
   def sentiment_score

@@ -2,7 +2,7 @@ import { beforeAll, afterEach, afterAll } from 'vitest'
 
 beforeAll(() => {
   // Global setup before all tests
-  console.log('Setting up test environment')
+  console.warn('Setting up test environment')
 })
 
 afterEach(() => {

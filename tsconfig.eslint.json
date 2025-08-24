@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "include": [
+    "app/javascript/**/*",
+    "spec/**/*.ts",
+    "spec/**/*.tsx",
+    "vite.config.mts",
+    "vitest.config.mts"
+  ],
+  "exclude": [
+    "node_modules",
+    "public",
+    "tmp",
+    "vendor",
+    "coverage"
+  ]
+}
+
+

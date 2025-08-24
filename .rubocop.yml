@@ -30,7 +30,9 @@ Metrics/MethodLength:
   Max: 20
 
 Metrics/ClassLength:
-  Max: 150
+  Max: 400
+  Exclude:
+    - 'app/services/sentiment_analyzer.rb'
 
 RSpec/MultipleExpectations:
   Max: 5

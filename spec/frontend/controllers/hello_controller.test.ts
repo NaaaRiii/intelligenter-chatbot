@@ -21,7 +21,9 @@ describe('HelloController', () => {
     application = Application.start()
     application.register('hello', HelloController)
 
-    element = document.querySelector('[data-controller="hello"]')!
+    const found = document.querySelector('[data-controller="hello"]')
+    expect(found).not.toBeNull()
+    element = found as HTMLElement
   })
 
   it('should connect and set output text', () => {
@@ -31,9 +33,9 @@ describe('HelloController', () => {
 
   it('should show alert when greet is called', () => {
     const alertSpy = vi.spyOn(window, 'alert').mockImplementation(() => {})
-    const button = element.querySelector('button')!
-    
-    button.click()
+    const button = element.querySelector('button')
+    expect(button).not.toBeNull()
+    ;(button as HTMLButtonElement).click()
     
     expect(alertSpy).toHaveBeenCalledWith('Hello, Test User!')
     alertSpy.mockRestore()
@@ -49,8 +51,9 @@ describe('HelloController', () => {
       </div>
     `
     
-    const button = document.querySelector('button')!
-    button.click()
+    const button2 = document.querySelector('button')
+    expect(button2).not.toBeNull()
+    ;(button2 as HTMLButtonElement).click()
     
     expect(alertSpy).toHaveBeenCalledWith('Hello, World!')
     alertSpy.mockRestore()

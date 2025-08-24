@@ -116,10 +116,8 @@ RSpec.describe HybridAnalysisJob, type: :job do
 
     context 'エラーが発生した場合' do
       before do
-        # rubocop:disable RSpec/AnyInstance
         allow_any_instance_of(NeedsExtractor).to receive(:extract_needs)
           .and_raise(StandardError, 'Analysis Error')
-        # rubocop:enable RSpec/AnyInstance
       end
 
       it 'エラーをログに記録する' do

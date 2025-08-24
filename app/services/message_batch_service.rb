@@ -54,7 +54,7 @@ class MessageBatchService
   end
 
   # ストリーミング保存（大量データ用）
-  def self.stream_save(conversation:, message_stream:, batch_size: 50) # rubocop:disable Metrics/MethodLength
+  def self.stream_save(conversation:, message_stream:, batch_size: 50)
     buffer = []
     saved_count = 0
 

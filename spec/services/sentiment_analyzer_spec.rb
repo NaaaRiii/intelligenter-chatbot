@@ -146,7 +146,6 @@ RSpec.describe SentimentAnalyzer, type: :service do
       end
     end
 
-    # rubocop:disable RSpec/NestedGroups
     context 'エスカレーショントリガー' do
       context '感情スコアの閾値' do
         let(:very_negative_messages) do
@@ -217,7 +216,6 @@ RSpec.describe SentimentAnalyzer, type: :service do
         end
       end
     end
-    # rubocop:enable RSpec/NestedGroups
 
     context 'キーワード分析' do
       let(:messages_with_keywords) do

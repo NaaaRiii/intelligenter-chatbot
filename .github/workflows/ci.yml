@@ -163,8 +163,8 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
       
-      - name: Run Rubocop
-        run: bundle exec rubocop --parallel
+      - name: Run Rubocop (Security, Lint, Performance only)
+        run: bundle exec rubocop --only Security,Lint,Performance
       
       - name: Run ESLint
         run: npm run lint

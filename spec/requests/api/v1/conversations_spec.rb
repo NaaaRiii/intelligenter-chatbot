@@ -4,7 +4,7 @@ require 'rails_helper'
 
 RSpec.describe 'Api::V1::Conversations', type: :request do
   let(:user) { create(:user) }
-  let(:headers) { { 'Authorization' => "Bearer #{user.api_token}" } }
+  let(:headers) { { 'X-Test-User-Id' => user.id.to_s } }
 
   describe 'GET /api/v1/conversations' do
     before { create_list(:conversation, 3, user: user) }

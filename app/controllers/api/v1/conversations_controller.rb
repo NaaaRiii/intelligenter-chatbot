@@ -4,7 +4,7 @@ module Api
   module V1
     # 会話管理のRESTful APIコントローラー
     class ConversationsController < BaseController
-      before_action :set_conversation, only: %i[show update destroy]
+      before_action :set_conversation, only: %i[show update destroy escalate]
 
       # GET /api/v1/conversations
       def index
@@ -50,6 +50,22 @@ module Api
       def destroy
         @conversation.destroy
         head :no_content
+      end
+
+      # POST /api/v1/conversations/:id/escalate
+      def escalate
+        # 最新の分析を取得
+        analysis = @conversation.analyses.last
+        
+        if analysis
+          channel = params[:channel] || 'slack'
+          EscalationNotificationWorker.perform_async(
+            analysis.id,
+            { 'channel' => channel }
+          )
+        end
+        
+        render json: { message: 'Escalation queued' }, status: :ok
       end
 
       private

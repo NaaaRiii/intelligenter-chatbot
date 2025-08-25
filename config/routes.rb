@@ -13,6 +13,18 @@ Rails.application.routes.draw do
   get 'chat/:conversation_id', to: 'chat#index', as: :conversation_chat
   post 'chat', to: 'chat#create_message'
   
+  # 会話詳細ページ
+  resources :conversations, only: [:show] do
+    # 管理用ダッシュボード（簡易/テスト用）
+    collection do
+      get :dashboard, to: 'conversations#dashboard'
+    end
+    # 可視化ページ（テストが参照）
+    member do
+      get :analytics, to: 'conversations#analytics', as: :analytics
+    end
+  end
+  
   # RESTful API v1
   namespace :api do
     namespace :v1 do
@@ -22,6 +34,9 @@ Rails.application.routes.draw do
           collection do
             post :trigger
           end
+        end
+        member do
+          post :escalate
         end
       end
       resources :users, only: %i[show update]

@@ -188,6 +188,7 @@ class AnalyzeConversationJob < ApplicationJob
           hidden_needs: analysis_result['hidden_needs'],
           sentiment: analysis_result['customer_sentiment'],
           priority: analysis_result['priority_level'],
+          escalation_required: analysis_result['escalation_required'],
           suggestions: extract_suggestions(analysis_result)
         }
       }

@@ -74,7 +74,9 @@ class Analysis < ApplicationRecord
   def requires_escalation?
     return false if escalated?
 
-    priority_level == 'high' || sentiment == 'frustrated'
+    return true if priority_level == 'high' || sentiment == 'frustrated'
+    # analysis_dataにescalation_requiredが含まれている場合も尊重
+    analysis_data && analysis_data['escalation_required'] == true
   end
 
   def update_analysis_data(key, value)

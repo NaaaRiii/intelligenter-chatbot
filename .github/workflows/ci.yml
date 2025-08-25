@@ -61,7 +61,7 @@ jobs:
           bundle exec rails assets:precompile
       
       - name: Setup Chrome for system tests
-        uses: browser-actions/setup-chrome@v1
+        uses: browser-actions/setup-chrome@v2
         with:
           chrome-version: stable
       

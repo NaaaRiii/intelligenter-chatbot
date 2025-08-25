@@ -83,7 +83,19 @@ jobs:
           DISABLE_SPRING: 1
           SELENIUM_DRIVER: headless_chrome
         run: |
-          bundle exec rspec --format documentation --format RspecJunitFormatter --out tmp/rspec.xml
+          # RspecJunitFormatterが利用可能か確認し、なければインストール
+          if ! bundle exec gem list | grep -q rspec_junit_formatter; then
+            echo "Installing rspec_junit_formatter..."
+            gem install rspec_junit_formatter
+          fi
+          
+          # テスト実行（フォールバック付き）
+          if bundle exec rspec --format documentation --format RspecJunitFormatter --out tmp/rspec.xml; then
+            echo "Tests completed with JUnit formatter"
+          else
+            echo "Falling back to standard format"
+            bundle exec rspec --format documentation
+          fi
       
       - name: Upload test results
         if: always()

@@ -50,7 +50,7 @@ RSpec.describe BotResponseJob, type: :job do
           )
         end.to have_enqueued_job(AnalyzeConversationJob)
           .with(conversation.id)
-          .on_queue('default')
+          .on_queue('analysis')
       end
     end
 

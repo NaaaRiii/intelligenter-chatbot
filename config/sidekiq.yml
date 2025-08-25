@@ -1,0 +1,41 @@
+# Sidekiq設定ファイル
+---
+:concurrency: 5
+:max_retries: 3
+:timeout: 8
+
+# Sidekiqのキュー設定
+:queues:
+  - [critical, 6]
+  - [default, 4]
+  - [analysis, 3]
+  - [low, 2]
+  - [mailers, 1]
+
+# 開発環境の設定
+development:
+  :concurrency: 2
+
+# テスト環境の設定
+test:
+  :concurrency: 1
+
+# 本番環境の設定
+production:
+  :concurrency: 10
+  :timeout: 25
+
+# ログ設定
+:verbose: true
+:logfile: ./log/sidekiq.log
+
+# デッドジョブの保持期間（180日）
+:dead_max_jobs: 10000
+:dead_timeout_in_seconds: 15552000
+
+# スケジュール設定（後でsidekiq-cronを使う場合）
+# :schedule:
+#   cleanup_old_analyses:
+#     cron: "0 3 * * *"
+#     class: CleanupOldAnalysesJob
+#     queue: low

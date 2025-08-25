@@ -66,6 +66,12 @@ yarn-error.log*
 .byebug_history
 /vendor/bundle
 
+# テストカバレッジ
+/coverage/
+coverage.json
+.resultset.json
+.last_run.json
+
 # Redis dump
 dump.rdb
 

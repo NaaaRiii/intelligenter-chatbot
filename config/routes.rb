@@ -1,4 +1,10 @@
 Rails.application.routes.draw do
+  # Sidekiq Web UI (開発環境のみ)
+  if Rails.env.development?
+    require 'sidekiq/web'
+    mount Sidekiq::Web => '/sidekiq'
+  end
+
   post "/graphql", to: "graphql#execute"
   # Define your application routes per the DSL in https://guides.rubyonrails.org/routing.html
 

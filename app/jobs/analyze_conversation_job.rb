@@ -1,44 +1,58 @@
 # frozen_string_literal: true
 
 # 会話をClaude APIで分析し、結果を保存するジョブ
+# Sidekiqワーカーへの移行のためのラッパーとして機能
 class AnalyzeConversationJob < ApplicationJob
-  queue_as :default
+  queue_as :analysis
 
   # エスカレーション閾値
   HIGH_PRIORITY_THRESHOLD = 'high'
   FRUSTRATED_SENTIMENT = 'frustrated'
 
   # rubocop:disable Metrics/AbcSize
-  def perform(conversation_id)
-    conversation = Conversation.find(conversation_id)
+  def perform(conversation_id, use_worker: true)
+    if use_worker && defined?(ConversationAnalysisWorker)
+      # Sidekiqワーカーを使用して非同期実行
+      ConversationAnalysisWorker.perform_async(
+        conversation_id,
+        'use_storage' => false,
+        'use_claude_api' => true
+      )
+      Rails.logger.info "Queued analysis for conversation ##{conversation_id} to Sidekiq"
+    else
+      # 従来の同期処理
+      conversation = Conversation.find(conversation_id)
 
-    # 会話履歴を構築
-    conversation_history = build_conversation_history(conversation)
-    return if conversation_history.empty?
+      # 会話履歴を構築
+      conversation_history = build_conversation_history(conversation)
+      return if conversation_history.empty?
 
-    # Claude APIで分析
-    service = ClaudeApiService.new
-    analysis_result = service.analyze_conversation(
-      conversation_history,
-      conversation.messages.last&.content
-    )
+      # Claude APIで分析
+      service = ClaudeApiService.new
+      analysis_result = service.analyze_conversation(
+        conversation_history,
+        conversation.messages.last&.content
+      )
 
-    # 分析結果を保存
-    analysis = save_analysis(conversation, analysis_result)
+      # 分析結果を保存
+      analysis = save_analysis(conversation, analysis_result)
 
-    # エスカレーション判定
-    handle_escalation(conversation, analysis) if requires_escalation?(analysis_result)
+      # エスカレーション判定
+      handle_escalation(conversation, analysis) if requires_escalation?(analysis_result)
 
-    # リアルタイムで分析結果を配信
-    broadcast_analysis_result(conversation, analysis_result)
+      # リアルタイムで分析結果を配信
+      broadcast_analysis_result(conversation, analysis_result)
 
-    Rails.logger.info "Analysis completed for conversation ##{conversation_id}"
+      Rails.logger.info "Analysis completed for conversation ##{conversation_id}"
+    end
   rescue StandardError => e
     Rails.logger.error "Analysis failed for conversation ##{conversation_id}: #{e.message}"
     Rails.logger.error e.backtrace.join("\n")
 
     # エラー時もフォールバック分析を保存
-    save_fallback_analysis(conversation, e.message)
+    if conversation_id && defined?(conversation) && conversation
+      save_fallback_analysis(conversation, e.message)
+    end
   end
 
   private

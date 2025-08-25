@@ -57,7 +57,7 @@ RSpec.describe AnalyzeConversationJob, type: :job do
         # 既存のanalysisがあるかもしれないので、まず削除
         conversation.analyses.destroy_all
 
-        described_class.perform_now(conversation.id)
+        described_class.perform_now(conversation.id, use_worker: false)
 
         # 複数作成される可能性を考慮してreloadしてチェック
         conversation.reload
@@ -82,7 +82,7 @@ RSpec.describe AnalyzeConversationJob, type: :job do
       end # rubocop:enable RSpec/MultipleExpectations
 
       it '分析時刻を記録する' do
-        described_class.perform_now(conversation.id)
+        described_class.perform_now(conversation.id, use_worker: false)
 
         analysis = conversation.analyses.last
         expect(analysis.analyzed_at).to be_within(1.second).of(Time.current)
@@ -92,7 +92,7 @@ RSpec.describe AnalyzeConversationJob, type: :job do
         # 既存のanalysisがあるかもしれないので、まず削除
         conversation.analyses.destroy_all
 
-        described_class.perform_now(conversation.id)
+        described_class.perform_now(conversation.id, use_worker: false)
 
         analysis = conversation.analyses.where(analysis_type: 'needs').last
         expect(analysis.confidence_score).to eq(0.8)
@@ -109,7 +109,7 @@ RSpec.describe AnalyzeConversationJob, type: :job do
       it 'エスカレーション処理を実行する' do
         expect(EscalationNotifier).to receive(:to_slack).once
 
-        described_class.perform_now(conversation.id)
+        described_class.perform_now(conversation.id, use_worker: false)
 
         analysis = conversation.analyses.last
         analysis.reload # データベースから最新の状態を取得
@@ -132,7 +132,7 @@ RSpec.describe AnalyzeConversationJob, type: :job do
           )
         )
 
-        described_class.perform_now(conversation.id)
+        described_class.perform_now(conversation.id, use_worker: false)
       end
     end
 
@@ -145,12 +145,12 @@ RSpec.describe AnalyzeConversationJob, type: :job do
         expect(Rails.logger).to receive(:error).with(/Analysis failed/)
         expect(Rails.logger).to receive(:error).at_least(:once)
 
-        described_class.perform_now(conversation.id)
+        described_class.perform_now(conversation.id, use_worker: false)
       end
 
       it 'フォールバック分析を保存する' do
         expect do
-          described_class.perform_now(conversation.id)
+          described_class.perform_now(conversation.id, use_worker: false)
         end.to change(conversation.analyses, :count).by(1)
 
         analysis = conversation.analyses.last
@@ -186,7 +186,7 @@ RSpec.describe AnalyzeConversationJob, type: :job do
 
       it '既存の分析を更新する' do
         expect do
-          described_class.perform_now(conversation.id)
+          described_class.perform_now(conversation.id, use_worker: false)
         end.not_to change(conversation.analyses, :count)
 
         existing_analysis.reload

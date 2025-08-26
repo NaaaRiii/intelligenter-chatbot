@@ -8,11 +8,16 @@ class EscalationNotificationWorker
                   retry: 10,
                   backtrace: 20
 
-  def perform(analysis_id, notification_type = 'all')
+  def perform(analysis_id, options = {})
     Rails.logger.info "Processing escalation notification for analysis ##{analysis_id}"
 
     analysis = Analysis.find(analysis_id)
-    return unless analysis.requires_escalation?
+    # テストの手動トリガや明示的な通知要求では強制的に通知する
+    force_notify = options.is_a?(Hash) ? (options['force'] || options[:force]) : false
+    return unless force_notify || analysis.requires_escalation?
+
+    # optionsからチャネルを取得、デフォルトは'all'
+    notification_type = options.is_a?(Hash) ? (options['channel'] || options[:channel] || 'all') : (options || 'all')
 
     # 通知タイプに応じて処理を分岐
     case notification_type

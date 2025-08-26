@@ -185,7 +185,7 @@ RSpec.describe 'Sidekiq非同期処理のE2Eテスト', type: :system do
 
   describe 'EscalationNotificationWorkerの通知処理' do
     let(:conversation) { create(:conversation, user: user) }
-    let(:high_priority_analysis) do
+    let!(:high_priority_analysis) do
       create(:analysis,
              conversation: conversation,
              priority_level: 'high',
@@ -201,9 +201,6 @@ RSpec.describe 'Sidekiq非同期処理のE2Eテスト', type: :system do
 
     it 'エスカレーション通知が非同期で送信される' do
       visit conversation_path(conversation)
-      
-      # 高優先度の分析を作成
-      high_priority_analysis
       
       # エスカレーションボタンをクリック
       click_button 'エスカレーション通知'
@@ -233,7 +230,6 @@ RSpec.describe 'Sidekiq非同期処理のE2Eテスト', type: :system do
 
     it '複数チャネルへの通知が並列処理される' do
       visit conversation_path(conversation)
-      high_priority_analysis
       
       # 複数の通知チャネルを選択
       check 'Slack通知'

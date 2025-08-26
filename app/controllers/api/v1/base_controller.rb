@@ -22,30 +22,22 @@ module Api
       end
 
       def authenticate_test_user
-        # Accept explicit test user header first
+        # 明示ヘッダーを最優先で使用
         test_user_id = request.headers['X-Test-User-Id'] || request.headers['X-Test-User-ID']
-        
         if test_user_id.present?
           @current_user = User.find_by(id: test_user_id)
           return true if @current_user
-          
-          head :unauthorized
-          return false
+          render json: { error: 'Unauthorized' }, status: :unauthorized and return
         end
 
-        # Fallback to Authorization: Bearer <token> even in test
-        found = false
+        # Bearerトークンも許可
         authenticate_with_http_token do |token, _options|
           @current_user = User.find_by(api_token: token)
-          found = true if @current_user
+          return true if @current_user
         end
-        
-        if found && @current_user
-          true
-        else
-          head :unauthorized
-          false
-        end
+
+        # それ以外は明示的に401
+        render json: { error: 'Unauthorized' }, status: :unauthorized and return
       end
 
       attr_reader :current_user

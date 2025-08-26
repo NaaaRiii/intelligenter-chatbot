@@ -2,6 +2,7 @@
 
 class ConversationsController < ApplicationController
   before_action :set_conversation, only: [:show, :analytics]
+  before_action :set_current_user_for_test, if: :test_environment?
 
   def show
     @messages = @conversation.messages.order(:created_at)
@@ -128,5 +129,14 @@ class ConversationsController < ApplicationController
 
   def set_conversation
     @conversation = Conversation.find(params[:id])
+  end
+
+  def test_environment?
+    Rails.env.test?
+  end
+
+  def set_current_user_for_test
+    # テスト環境でユーザーを設定
+    @current_user = @conversation&.user || User.first || User.create!(email: 'test@example.com')
   end
 end

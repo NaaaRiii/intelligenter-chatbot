@@ -5,6 +5,10 @@
     <meta name="viewport" content="width=device-width,initial-scale=1">
     <%= csrf_meta_tags %>
     <%= csp_meta_tag %>
+    
+    <% if Rails.env.test? && @current_user %>
+      <meta name="test-user-id" content="<%= @current_user.id %>">
+    <% end %>
 
     <%= vite_client_tag %>
     <%= vite_javascript_tag 'application' %>

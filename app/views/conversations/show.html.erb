@@ -295,14 +295,23 @@ document.addEventListener('DOMContentLoaded', function() {
       const conversationId = this.dataset.conversationId;
       const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
       
+      // テスト環境用のユーザーID
+      const testUserId = document.querySelector('meta[name="test-user-id"]')?.getAttribute('content');
+      
       // APIを呼び出してWorkerをキューに追加（テスト環境用）
       try {
+        const headers = {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': token || ''
+        };
+        
+        if (testUserId) {
+          headers['X-Test-User-Id'] = testUserId;
+        }
+        
         await fetch(`/api/v1/conversations/${conversationId}/escalate`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-CSRF-Token': token || ''
-          },
+          headers: headers,
           body: JSON.stringify({})
         });
       } catch (e) {
@@ -336,16 +345,23 @@ document.addEventListener('DOMContentLoaded', function() {
       
       const conversationId = document.getElementById('escalation-button').dataset.conversationId;
       const token = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content');
+      const testUserId = document.querySelector('meta[name="test-user-id"]')?.getAttribute('content');
       
       // 各チャネルに対してWorkerをキューに追加（テスト用）
       for (const channel of channels) {
         try {
+          const headers = {
+            'Content-Type': 'application/json',
+            'X-CSRF-Token': token || ''
+          };
+          
+          if (testUserId) {
+            headers['X-Test-User-Id'] = testUserId;
+          }
+          
           await fetch(`/api/v1/conversations/${conversationId}/escalate`, {
             method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'X-CSRF-Token': token || ''
-            },
+            headers: headers,
             body: JSON.stringify({ channel: channel })
           });
         } catch (e) {

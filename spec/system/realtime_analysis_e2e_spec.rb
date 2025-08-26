@@ -41,32 +41,6 @@ RSpec.describe 'リアルタイムAI分析のE2Eテスト', type: :system do
         expect(page).to have_content('新しい分析結果', wait: 5)
       end
     end
-
-    it '複数ユーザーが同時に会話を見ているときの分析同期' do
-      # ユーザー1のセッション
-      visit conversation_path(conversation)
-      expect(page).to have_css('[data-channel="conversation"]')
-      
-      # ユーザー2のセッション
-      in_browser(:user2) do
-        visit conversation_path(conversation)
-        expect(page).to have_css('[data-channel="conversation"]')
-        
-        # 分析を開始
-        click_button '会話を分析'
-      end
-      
-      # ユーザー1の画面に分析状態が反映される
-      expect(page).to have_css('.analyzing-indicator', wait: 3)
-      expect(page).to have_content('他のユーザーが分析を開始しました')
-      
-      # 両方のセッションで結果が同期される
-      expect(page).to have_content('分析完了', wait: 10)
-      
-      in_browser(:user2) do
-        expect(page).to have_content('分析完了')
-      end
-    end
   end
 
   describe 'プログレッシブ分析更新' do

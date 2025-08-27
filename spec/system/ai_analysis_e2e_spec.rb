@@ -176,7 +176,7 @@ RSpec.describe 'AI分析機能のE2Eテスト', type: :system, js: true do
       visit dashboard_conversations_path
       
       # バッチ分析を実行
-      click_button '全会話を分析'
+      click_button '全会話を一括分析'
       
       # プログレスバーが表示される
       expect(page).to have_css('.batch-progress', wait: 2)
@@ -186,8 +186,10 @@ RSpec.describe 'AI分析機能のE2Eテスト', type: :system, js: true do
       
       # Sidekiqのインラインモードで即座に処理される
       within '.batch-results' do
-        expect(page).to have_content('5件の会話を分析しました', wait: 10)
-        expect(page).to have_content('成功: 5件')
+        # 会話の総数を取得（テスト時に既存の会話も含まれる可能性があるため）
+        total_count = Conversation.count
+        expect(page).to have_content("#{total_count}件の会話を分析しました", wait: 10)
+        expect(page).to have_content("成功: #{total_count}件")
         expect(page).to have_content('失敗: 0件')
       end
       

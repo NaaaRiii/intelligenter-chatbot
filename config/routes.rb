@@ -13,6 +13,12 @@ Rails.application.routes.draw do
   get 'chat/:conversation_id', to: 'chat#index', as: :conversation_chat
   post 'chat', to: 'chat#create_message'
   
+  # 分析ダッシュボード
+  get 'dashboard', to: 'dashboard#index'
+  get 'dashboard/export', to: 'dashboard#export'
+  post 'dashboard/bulk_analyze', to: 'dashboard#bulk_analyze'
+  post 'dashboard/refresh', to: 'dashboard#refresh'
+
   # 会話詳細ページ
   resources :conversations, only: [:show] do
     # 管理用ダッシュボード（簡易/テスト用）

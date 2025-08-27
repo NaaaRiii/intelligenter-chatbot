@@ -165,21 +165,27 @@ RSpec.describe '分析ダッシュボード', type: :system do
     end
 
     it '個別の会話詳細に遷移できる' do
+      # テストデータが確実に存在することを確認
+      expect(@conversations).not_to be_empty
+      expect(@conversations.first).to be_persisted
+      
       visit dashboard_path
       
-      # 最近の会話リストが存在することを確認
-      expect(page).to have_css('#recent-conversations')
+      # ページが完全に読み込まれるまで待機
+      expect(page).to have_css('#recent-conversations', wait: 10)
       
+      # 最近の会話リストに会話が表示されていることを確認
       within '#recent-conversations' do
-        # リンクが少なくとも1つ存在することを確認
-        expect(page).to have_link('表示', minimum: 1)
+        # リンクが少なくとも1つ存在することを確認（CI環境用に待機時間を増やす）
+        expect(page).to have_link('表示', minimum: 1, wait: 10)
         
         # 最初のリンクをクリック
         first(:link, '表示').click
       end
       
       # 遷移先が会話詳細ページであることを確認（どの会話でも良い）
-      expect(current_path).to match(%r{/conversations/\d+})
+      # CI環境では遷移に時間がかかる可能性があるため、待機時間を設定
+      expect(page).to have_current_path(%r{/conversations/\d+}, wait: 10)
     end
   end
 

@@ -8,11 +8,16 @@ class EscalationNotificationWorker
                   retry: 10,
                   backtrace: 20
 
-  def perform(analysis_id, notification_type = 'all')
+  def perform(analysis_id, options = {})
     Rails.logger.info "Processing escalation notification for analysis ##{analysis_id}"
 
     analysis = Analysis.find(analysis_id)
-    return unless analysis.requires_escalation?
+    # テストの手動トリガや明示的な通知要求では強制的に通知する
+    force_notify = options.is_a?(Hash) ? (options['force'] || options[:force]) : false
+    return unless force_notify || analysis.requires_escalation?
+
+    # optionsからチャネルを取得、デフォルトは'all'
+    notification_type = options.is_a?(Hash) ? (options['channel'] || options[:channel] || 'all') : (options || 'all')
 
     # 通知タイプに応じて処理を分岐
     case notification_type
@@ -60,8 +65,22 @@ class EscalationNotificationWorker
     # 追加情報はdebugで出力（変数参照を維持）
     Rails.logger.debug { "Slack payload: #{slack_message.to_json}" }
 
-    # Slack WebhookへPOST（実装例）
-    # SlackNotifier.post(slack_message)
+    # Slack WebhookへPOST
+    if ENV['SLACK_WEBHOOK_URL'].present?
+      require 'net/http'
+      require 'uri'
+      
+      uri = URI(ENV['SLACK_WEBHOOK_URL'])
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = true
+      
+      request = Net::HTTP::Post.new(uri)
+      request['Content-Type'] = 'application/json'
+      request.body = slack_message.to_json
+      
+      response = http.request(request)
+      Rails.logger.info "Slack notification sent with status: #{response.code}"
+    end
   end
 
   def update_dashboard(analysis)

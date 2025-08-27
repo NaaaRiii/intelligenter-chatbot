@@ -152,8 +152,13 @@ RSpec.describe 'Message Interaction', :js, type: :system do
 
       # 最初のメッセージが表示されるまで待つ
       expect(page).to have_content('最初のメッセージ', wait: 5)
-      sleep 0.5
+      
+      # DOM更新が完了するまで待機
+      sleep 1
 
+      # 入力フィールドが再度利用可能になるまで待つ
+      expect(page).to have_field('message-input', wait: 5)
+      
       fill_in 'message-input', with: '二番目のメッセージ'
       click_button '送信'
 

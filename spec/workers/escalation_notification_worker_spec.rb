@@ -48,14 +48,24 @@ RSpec.describe EscalationNotificationWorker, type: :worker do
         end
 
         it 'Slack通知を送信する' do
+          # Slack Webhook へのHTTPリクエストをモック
+          stub_request(:post, 'https://hooks.slack.com/test')
+            .to_return(status: 200, body: 'ok')
+          
           expect(Rails.logger).to receive(:info)
             .with("Processing escalation notification for analysis ##{analysis.id}")
           expect(Rails.logger).to receive(:info)
             .with("Sending Slack notification for analysis ##{analysis.id}")
           expect(Rails.logger).to receive(:info)
+            .with("Slack notification sent with status: 200")
+          expect(Rails.logger).to receive(:info)
             .with("Completed escalation notification for analysis ##{analysis.id}")
 
           worker.perform(analysis.id, 'slack')
+          
+          # HTTPリクエストが送信されたことを確認
+          expect(WebMock).to have_requested(:post, 'https://hooks.slack.com/test')
+            .with(headers: { 'Content-Type' => 'application/json' })
         end
       end
 

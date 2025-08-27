@@ -125,6 +125,7 @@ module ErrorMockHelper
 
   def trigger_server_error
     page.execute_script(<<~JS)
+      try { if (!window.__ORIGINAL_XHR) { window.__ORIGINAL_XHR = window.XMLHttpRequest; } } catch(e) {}
       window.forceServerError = true;
       window.XMLHttpRequest = function() {
         this.open = function() {};
@@ -140,7 +141,7 @@ module ErrorMockHelper
   def trigger_timeout_error
     page.execute_script(<<~JS)
       window.forceTimeout = true;
-      const originalFetch = window.fetch;
+      try { if (!window.__ORIGINAL_FETCH) { window.__ORIGINAL_FETCH = window.fetch; } } catch(e) {}
       window.fetch = function() {
         return new Promise((resolve, reject) => {
           setTimeout(() => reject(new Error('Timeout')), 100);
@@ -162,7 +163,8 @@ module ErrorMockHelper
       delete window.forceServerError;
       delete window.forceTimeout;
       window.navigator.onLine = true;
-      // XMLHttpRequestとfetchをリセット（リロードが必要な場合がある）
+      try { if (window.__ORIGINAL_FETCH) { window.fetch = window.__ORIGINAL_FETCH; } } catch(e) {}
+      try { if (window.__ORIGINAL_XHR) { window.XMLHttpRequest = window.__ORIGINAL_XHR; } } catch(e) {}
     JS
   end
 end
@@ -245,6 +247,18 @@ RSpec.configure do |config|
   config.after(:each, :js, type: :system) do
     # エラーモックをリセット
     reset_error_mocks if page.current_window
+    # グローバル状態のリセット（ActionCable/テストフラグ/一時DOM）
+    begin
+      page.execute_script(<<~JS)
+        try { if (window.App && window.App.cable && window.App.cable.subscriptions && window.App.cable.subscriptions.list) { window.App.cable.subscriptions.list.length = 0; } } catch(e) {}
+        try { delete window.lastSubscription; } catch(e) {}
+        try { delete window.TEST_MODE; } catch(e) {}
+        try { var b=document.querySelector('.network-error-banner'); if(b && b.parentNode){ b.parentNode.removeChild(b); } } catch(e) {}
+        try { var ind=document.querySelector('.analyzing-indicator'); if(ind){ ind.classList.add('hidden'); ind.style.display='none'; } } catch(e) {}
+      JS
+    rescue StandardError
+      # noop
+    end
   rescue Capybara::NotSupportedByDriverError
     # ドライバーがリセットをサポートしていない場合は無視
   end

@@ -167,7 +167,13 @@ RSpec.describe '分析ダッシュボード', type: :system do
     it '個別の会話詳細に遷移できる' do
       visit dashboard_path
       
+      # 最近の会話リストが存在することを確認
+      expect(page).to have_css('#recent-conversations')
+      
       within '#recent-conversations' do
+        # リンクが少なくとも1つ存在することを確認
+        expect(page).to have_link('表示', minimum: 1)
+        
         # 最初のリンクをクリック
         first(:link, '表示').click
       end

@@ -51,7 +51,9 @@ module SystemTestHelpers
 
   # デバッグ用スクリーンショット
   def debug_screenshot(name = 'debug')
-    save_screenshot("tmp/#{name}_#{Time.now.to_i}.png")
+    # rubocop:disable Lint/Debugger
+    save_screenshot("tmp/#{name}_#{Time.now.to_i}.png") if ENV['DEBUG_SCREENSHOTS']
+    # rubocop:enable Lint/Debugger
   end
 end
 

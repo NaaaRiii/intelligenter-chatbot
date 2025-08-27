@@ -108,10 +108,10 @@ RSpec.describe 'リアルタイムAI分析のE2Eテスト', type: :system do
 
     it 'エスカレーション通知がダッシュボードにリアルタイム表示される' do
       # エスカレーションを先に作成
-      analysis = create(:analysis,
-                       conversation: @conversations.first,
-                       priority_level: 'high',
-                       escalated: true)
+      create(:analysis,
+             conversation: @conversations.first,
+             priority_level: 'high',
+             escalated: true)
       
       visit dashboard_conversations_path
       
@@ -130,7 +130,7 @@ RSpec.describe 'リアルタイムAI分析のE2Eテスト', type: :system do
 
   describe 'バッチ分析の進捗表示' do
     it 'バッチ分析の進捗がプログレスバーで表示される' do
-      conversations = create_list(:conversation, 10, user: user)
+      create_list(:conversation, 10, user: user)
       
       visit dashboard_conversations_path
       

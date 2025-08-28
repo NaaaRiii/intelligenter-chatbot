@@ -165,6 +165,9 @@ RSpec.describe '分析ダッシュボード', type: :system do
     end
 
     it '個別の会話詳細に遷移できる' do
+      # JS不要な system は rack_test を採用（CI 安定化のため）。
+      # 本テストはJS不要のため rack_test に切り替える。
+      driven_by(:rack_test)
       # テストデータが確実に存在することを確認
       expect(@conversations).not_to be_empty
       expect(@conversations.first).to be_persisted

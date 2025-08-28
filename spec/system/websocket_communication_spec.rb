@@ -18,6 +18,9 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
         allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(user1)
         visit chat_path(conversation_id: conversation.id)
         setup_test_environment
+        
+        # ページが完全に読み込まれるまで待機
+        expect(page).to have_selector('#message-input', wait: 10)
         sleep 1
 
         # sendMessage関数を定義
@@ -530,17 +533,19 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
   end
 
   describe 'パフォーマンス' do
+    let(:perf_conversation) { create(:conversation, user: user1) }
+    
     before do
       allow_any_instance_of(ApplicationController).to receive(:current_user).and_return(user1)
 
       # 大量のメッセージを作成
       100.times do |i|
-        create(:message, conversation: conversation, content: "メッセージ #{i}")
+        create(:message, conversation: perf_conversation, content: "メッセージ #{i}")
       end
     end
 
     it '大量のメッセージでも接続を維持する' do
-      visit chat_path(conversation_id: conversation.id)
+      visit chat_path(conversation_id: perf_conversation.id)
 
       expect(page).to have_selector('.connection-status.connected')
 
@@ -553,7 +558,7 @@ RSpec.describe 'WebSocket Communication', :js, type: :system do
     end
 
     it 'メッセージのバッチ受信を処理する' do
-      visit chat_path(conversation_id: conversation.id)
+      visit chat_path(conversation_id: perf_conversation.id)
       setup_test_environment
       sleep 1
 

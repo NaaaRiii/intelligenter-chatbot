@@ -10,7 +10,9 @@
       <meta name="test-user-id" content="<%= @current_user.id %>">
     <% end %>
 
-    <%= vite_client_tag %>
+    <% if Rails.env.development? %>
+      <%= vite_client_tag %>
+    <% end %>
     <%= vite_javascript_tag 'application' %>
 
     <% if Rails.env.test? %>

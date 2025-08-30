@@ -4,6 +4,8 @@ function Chatbot() {
   const [message, setMessage] = React.useState('');
   const [isSubmitted, setIsSubmitted] = React.useState(false);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [customerType, setCustomerType] = React.useState<'new' | 'existing' | null>(null);
+  const [showCustomerTypeModal, setShowCustomerTypeModal] = React.useState(true);
 
   const handleSubmit = async () => {
     if (!message.trim()) return;
@@ -23,16 +25,115 @@ function Chatbot() {
     setMessage('');
   };
 
+  const handleCustomerTypeSelect = (type: 'new' | 'existing') => {
+    setCustomerType(type);
+    setShowCustomerTypeModal(false);
+  };
+
   return (
     <div style={{ minHeight: '100vh', backgroundColor: '#f9fafb', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-      <div style={{ width: '100%', maxWidth: '42rem', backgroundColor: 'white', borderRadius: '1rem', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)', overflow: 'hidden' }}>
+      {/* 顧客タイプ選択画面（チャット画面の前に表示） */}
+      {showCustomerTypeModal ? (
+        <div style={{
+          backgroundColor: 'white',
+          borderRadius: '1rem',
+          padding: '2rem',
+          maxWidth: '28rem',
+          width: '90%',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)'
+        }}>
+          <h2 style={{
+            fontSize: '1.5rem',
+            fontWeight: 'bold',
+            marginBottom: '1rem',
+            color: '#1f2937'
+          }}>
+            お問い合わせありがとうございます
+          </h2>
+          <p style={{
+            color: '#6b7280',
+            marginBottom: '2rem',
+            lineHeight: '1.6'
+          }}>
+            適切なサポートをご提供するため、ご利用状況をお聞かせください。
+          </p>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <button
+              onClick={() => handleCustomerTypeSelect('new')}
+              style={{
+                padding: '1rem',
+                backgroundColor: '#f3f4f6',
+                borderRadius: '0.5rem',
+                border: '2px solid transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#2563eb';
+                e.currentTarget.style.backgroundColor = '#eff6ff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'transparent';
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+              }}
+            >
+              <div style={{ fontWeight: '600', marginBottom: '0.25rem', color: '#1f2937' }}>
+                初めてのお問い合わせ
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                サービスについて詳しく知りたい方
+              </div>
+            </button>
+            <button
+              onClick={() => handleCustomerTypeSelect('existing')}
+              style={{
+                padding: '1rem',
+                backgroundColor: '#f3f4f6',
+                borderRadius: '0.5rem',
+                border: '2px solid transparent',
+                cursor: 'pointer',
+                textAlign: 'left',
+                transition: 'all 0.2s'
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.borderColor = '#2563eb';
+                e.currentTarget.style.backgroundColor = '#eff6ff';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.borderColor = 'transparent';
+                e.currentTarget.style.backgroundColor = '#f3f4f6';
+              }}
+            >
+              <div style={{ fontWeight: '600', marginBottom: '0.25rem', color: '#1f2937' }}>
+                既にご契約・お取引がある
+              </div>
+              <div style={{ fontSize: '0.875rem', color: '#6b7280' }}>
+                ご契約中のサービスについてのお問い合わせ
+              </div>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div style={{ width: '100%', maxWidth: '42rem', backgroundColor: 'white', borderRadius: '1rem', boxShadow: '0 10px 25px -5px rgba(0, 0, 0, 0.1)', overflow: 'hidden' }}>
         {/* ヘッダー */}
         <div style={{ background: 'linear-gradient(to right, #2563eb, #1d4ed8)', color: 'white', padding: '1.5rem' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
               <h1 style={{ fontSize: '1.5rem', fontWeight: 'bold', margin: 0 }}>お問い合わせサポート</h1>
               <p style={{ margin: '0.25rem 0 0 0', opacity: 0.9 }}>マーケティング×システムのプロ集団がサポートします</p>
             </div>
+            {customerType && !showCustomerTypeModal && (
+              <div style={{
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                padding: '0.5rem 1rem',
+                borderRadius: '0.5rem',
+                fontSize: '0.875rem',
+                fontWeight: '500'
+              }}>
+                {customerType === 'new' ? '新規お客様' : '既存のお客様'}
+              </div>
+            )}
           </div>
         </div>
 
@@ -171,6 +272,7 @@ function Chatbot() {
           </p>
         </div>
       </div>
+      )}
     </div>
   );
 }

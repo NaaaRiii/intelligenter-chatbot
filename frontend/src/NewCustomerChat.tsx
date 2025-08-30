@@ -4,6 +4,8 @@ import CategorySelector from './CategorySelector';
 import { generateAIResponse } from './companyKnowledge';
 import actionCableService from './services/actionCable';
 import ChatHistory from './components/ChatHistory';
+import AutoResumeChat from './components/AutoResumeChat';
+import SessionManager from './services/sessionManager';
 
 interface Message {
   id: number;
@@ -37,6 +39,7 @@ const NewCustomerChat: React.FC = () => {
   });
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [hasResumed, setHasResumed] = useState(false);
 
   // 会話を再開する
   const handleResumeConversation = async (resumeConversationId: string) => {
@@ -153,11 +156,42 @@ const NewCustomerChat: React.FC = () => {
     ]
   };
 
+  // 自動復元のハンドラ
+  const handleConversationLoaded = (data: { conversationId: string; messages: any[] }) => {
+    console.log('Conversation resumed:', data.conversationId);
+    
+    // 復元したメッセージを設定
+    const restoredMessages = data.messages.map((msg: any) => ({
+      id: msg.id,
+      text: msg.content,
+      sender: msg.role === 'company' ? 'company' : msg.role === 'assistant' ? 'bot' : 'user',
+      timestamp: new Date(msg.created_at || Date.now()),
+      role: msg.role
+    }));
+    
+    setMessages(restoredMessages);
+    setConversationId(data.conversationId);
+    setHasResumed(true);
+    setIsLoading(false);
+    setShowCategorySelector(false); // 復元時はカテゴリ選択を表示しない
+    
+    // SessionManagerを更新
+    SessionManager.setCurrentConversationId(data.conversationId);
+  };
+
   // 初回アクセス時の段階的表示とActionCable接続
   useEffect(() => {
-    // URLからconversationIdを取得または新規生成
+    // セッションIDを取得
+    const sessionId = SessionManager.getSessionId();
+    
+    // URLからconversationIdを取得またはセッションから取得
     const pathId = window.location.pathname.split('/').pop();
-    const convId = pathId && pathId !== 'chat' ? pathId : `chat-${Date.now()}`;
+    const storedConvId = SessionManager.getCurrentConversationId();
+    const convId = pathId && pathId !== 'chat' ? pathId : storedConvId || `chat-${Date.now()}`;
+    
+    if (!storedConvId || storedConvId !== convId) {
+      SessionManager.setCurrentConversationId(convId);
+    }
     setConversationId(convId);
 
     // ActionCableに接続
@@ -189,28 +223,32 @@ const NewCustomerChat: React.FC = () => {
       }
     });
 
-    // 0.5秒後にボットの挨拶メッセージを表示
-    setTimeout(() => {
-      const welcomeMessage: Message = {
-        id: 1,
-        text: 'こんにちは！お問い合わせありがとうございます。どのようなご用件でしょうか？',
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages([welcomeMessage]);
-      setIsLoading(false);
-      
-      // さらに0.2秒後にカテゴリー選択を表示
+    // 復元されなかった場合のみウェルカムメッセージを表示
+    if (!hasResumed) {
       setTimeout(() => {
-        setShowCategorySelector(true);
-      }, 200);
-    }, 500);
+        if (!hasResumed) { // 再確認
+          const welcomeMessage: Message = {
+            id: 1,
+            text: 'こんにちは！お問い合わせありがとうございます。どのようなご用件でしょうか？',
+            sender: 'bot',
+            timestamp: new Date()
+          };
+          setMessages([welcomeMessage]);
+          setIsLoading(false);
+          
+          // さらに0.2秒後にカテゴリー選択を表示
+          setTimeout(() => {
+            setShowCategorySelector(true);
+          }, 200);
+        }
+      }, 500);
+    }
 
     // クリーンアップ
     return () => {
       actionCableService.unsubscribe();
     };
-  }, []);
+  }, [hasResumed]);
 
   // ActionCable経由でメッセージを送信
   const sendMessageToCable = (content: string, role: 'user' | 'assistant' | 'company' = 'user') => {
@@ -421,7 +459,8 @@ const NewCustomerChat: React.FC = () => {
   };
 
   return (
-    <div style={{
+    <AutoResumeChat onConversationLoaded={handleConversationLoaded}>
+      <div style={{
       display: 'flex',
       flexDirection: 'column',
       height: '100vh',
@@ -858,7 +897,8 @@ const NewCustomerChat: React.FC = () => {
           }
         }
       `}</style>
-    </div>
+      </div>
+    </AutoResumeChat>
   );
 };
 

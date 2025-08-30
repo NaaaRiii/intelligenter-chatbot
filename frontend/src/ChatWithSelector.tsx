@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import CustomerTypeSelector from './CustomerTypeSelector';
 import Chatbot from './Chatbot';
+import NewCustomerChat from './NewCustomerChat';
 
 const ChatWithSelector: React.FC = () => {
   const [customerType, setCustomerType] = useState<'new' | 'existing' | null>(null);
@@ -14,7 +15,12 @@ const ChatWithSelector: React.FC = () => {
     return <CustomerTypeSelector onSelect={handleCustomerTypeSelect} />;
   }
 
-  // 顧客タイプが選択されたらチャット画面を表示
+  // 新規顧客の場合はNewCustomerChatを表示
+  if (customerType === 'new') {
+    return <NewCustomerChat />;
+  }
+
+  // 既存顧客の場合は通常のChatbot画面を表示
   return (
     <div style={{ position: 'relative' }}>
       {/* 顧客タイプ表示バー */}
@@ -23,19 +29,19 @@ const ChatWithSelector: React.FC = () => {
         top: 0,
         left: 0,
         right: 0,
-        backgroundColor: customerType === 'new' ? '#dbeafe' : '#dcfce7',
+        backgroundColor: '#dcfce7',
         padding: '0.5rem',
         textAlign: 'center',
         borderBottom: '1px solid',
-        borderColor: customerType === 'new' ? '#93c5fd' : '#86efac',
+        borderColor: '#86efac',
         zIndex: 100
       }}>
         <span style={{
           fontSize: '0.875rem',
           fontWeight: '500',
-          color: customerType === 'new' ? '#1e40af' : '#166534'
+          color: '#166534'
         }}>
-          {customerType === 'new' ? '🆕 新規のお客様' : '✅ 既存のお客様'}
+          ✅ 既存のお客様
         </span>
       </div>
       

@@ -2,7 +2,7 @@ class Message < ApplicationRecord
   include CacheableMessage
 
   # 定数
-  ROLES = %w[user assistant system].freeze
+  ROLES = %w[user assistant system company].freeze
   MAX_CONTENT_LENGTH = 2_000
 
   # アソシエーション
@@ -63,6 +63,14 @@ class Message < ApplicationRecord
 
   def from_system?
     role == 'system'
+  end
+
+  def company?
+    role == 'company'
+  end
+
+  def from_company?
+    company?
   end
 
   def formatted_timestamp

@@ -3,6 +3,7 @@ import { Send, MessageCircle, User, Mail, Building, Phone } from 'lucide-react';
 import CategorySelector from './CategorySelector';
 import { generateAIResponse } from './companyKnowledge';
 import actionCableService from './services/actionCable';
+import ChatHistory from './components/ChatHistory';
 
 interface Message {
   id: number;
@@ -36,6 +37,73 @@ const NewCustomerChat: React.FC = () => {
   });
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+
+  // 会話を再開する
+  const handleResumeConversation = async (resumeConversationId: string) => {
+    try {
+      // APIから会話の詳細を取得
+      const response = await fetch(`http://localhost:3000/api/v1/conversations/${resumeConversationId}`, {
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch conversation');
+      }
+      
+      const data = await response.json();
+      const conversation = data.conversation;
+      
+      // メッセージを復元
+      const restoredMessages = conversation.messages.map((msg: any) => ({
+        id: msg.id,
+        text: msg.content,
+        sender: msg.role === 'company' ? 'company' : msg.role === 'assistant' ? 'bot' : 'user',
+        timestamp: new Date(msg.created_at),
+        role: msg.role
+      }));
+      
+      setMessages(restoredMessages);
+      setConversationId(resumeConversationId);
+      
+      // ActionCableに再接続
+      actionCableService.unsubscribe();
+      actionCableService.subscribeToConversation(resumeConversationId, {
+        onConnected: () => {
+          setIsConnected(true);
+          console.log('Resumed conversation:', resumeConversationId);
+        },
+        onDisconnected: () => {
+          setIsConnected(false);
+        },
+        onReceived: (data) => {
+          if (data.message) {
+            const newMessage: Message = {
+              id: data.message.id || Date.now(),
+              text: data.message.content,
+              sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
+              timestamp: new Date(data.message.created_at || Date.now()),
+              role: data.message.role
+            };
+            setMessages(prev => {
+              const exists = prev.some(m => m.id === newMessage.id);
+              if (exists) return prev;
+              return [...prev, newMessage];
+            });
+          }
+        }
+      });
+      
+      // 会話を再開（APIでステータス更新）
+      await fetch(`http://localhost:3000/api/v1/conversations/${resumeConversationId}/resume`, {
+        method: 'POST',
+        credentials: 'include'
+      });
+      
+    } catch (error) {
+      console.error('Error resuming conversation:', error);
+      alert('会話の再開に失敗しました');
+    }
+  };
 
   const categoryNames: { [key: string]: string } = {
     service: 'サービス概要・能力範囲',
@@ -369,28 +437,36 @@ const NewCustomerChat: React.FC = () => {
         <div style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '0.75rem',
+          justifyContent: 'space-between',
           maxWidth: '48rem',
           margin: '0 auto'
         }}>
-          <MessageCircle size={24} color="#2563eb" />
-          <div>
-            <h2 style={{
-              fontSize: '1.125rem',
-              fontWeight: '600',
-              color: '#1f2937',
-              margin: 0
-            }}>
-              カスタマーサポート
-            </h2>
-            <p style={{
-              fontSize: '0.75rem',
-              color: '#6b7280',
-              margin: 0
-            }}>
-              マーケティング×システムのプロ集団がサポートします
-            </p>
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem'
+          }}>
+            <MessageCircle size={24} color="#2563eb" />
+            <div>
+              <h2 style={{
+                fontSize: '1.125rem',
+                fontWeight: '600',
+                color: '#1f2937',
+                margin: 0
+              }}>
+                カスタマーサポート
+              </h2>
+              <p style={{
+                fontSize: '0.75rem',
+                color: '#6b7280',
+                margin: 0
+              }}>
+                マーケティング×システムのプロ集団がサポートします
+              </p>
+            </div>
           </div>
+          {/* チャット履歴ボタン */}
+          <ChatHistory onResumeConversation={handleResumeConversation} />
         </div>
       </div>
 

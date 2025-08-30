@@ -46,6 +46,7 @@ Rails.application.routes.draw do
         end
         member do
           post :escalate
+          post :resume
         end
       end
       resources :users, only: %i[show update]

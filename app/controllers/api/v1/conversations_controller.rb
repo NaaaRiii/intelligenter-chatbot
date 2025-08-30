@@ -1,13 +1,17 @@
 module Api
   module V1
     class ConversationsController < BaseController
-      before_action :set_conversation, only: [:show, :messages]
+      skip_before_action :authenticate_api_user!, only: [:index, :show, :create, :messages, :resume]
+      before_action :set_or_create_session_id
+      before_action :set_conversation, only: [:show, :messages, :resume]
 
       # GET /api/v1/conversations
       def index
         @conversations = Conversation.includes(:messages)
+                                   .where(session_id: @session_id)
                                    .order(updated_at: :desc)
                                    .page(params[:page])
+                                   .per(params[:per_page] || 10)
         
         render json: {
           conversations: @conversations.as_json(
@@ -52,6 +56,7 @@ module Api
         @messages = @conversation.messages
                                 .chronological
                                 .page(params[:page])
+                                .per(params[:per_page] || 50)
         
         render json: {
           messages: @messages.as_json(
@@ -65,10 +70,33 @@ module Api
         }
       end
 
+      # POST /api/v1/conversations/:id/resume
+      def resume
+        @conversation.update!(status: 'active', updated_at: Time.current)
+        render json: {
+          conversation: @conversation.as_json(
+            include: {
+              messages: { only: [:id, :content, :role, :created_at] }
+            }
+          )
+        }
+      end
+
       private
 
+      def set_or_create_session_id
+        @session_id = request.headers['X-Session-Id'] || request.headers['Cookie']&.match(/session_id=([^;]+)/)&.[](1)
+        
+        if @session_id.blank?
+          @session_id = SecureRandom.uuid
+          response.set_header('Set-Cookie', "session_id=#{@session_id}; HttpOnly; SameSite=Lax; Path=/")
+        end
+      end
+
       def set_conversation
-        @conversation = Conversation.find(params[:id])
+        @conversation = Conversation.where(session_id: @session_id).find(params[:id])
+      rescue ActiveRecord::RecordNotFound
+        render json: { error: 'Conversation not found' }, status: :not_found
       end
 
       def conversation_params

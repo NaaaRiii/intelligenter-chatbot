@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { TrendingUp, Users, MessageCircle, Star, AlertTriangle, Eye, ChevronRight, Calendar, Target, Heart, Frown, ArrowUp, ArrowDown } from 'lucide-react';
+import { TrendingUp, Users, MessageCircle, Star, AlertTriangle, Eye, ChevronRight, Calendar, Target, Heart, Frown, ArrowUp, ArrowDown, Clock, CheckCircle, User, Building, Mail, Phone } from 'lucide-react';
 
 interface CustomerInsight {
   id: string;
@@ -25,8 +25,28 @@ interface SentimentData {
   issue?: string;
 }
 
+interface PendingChat {
+  id: string;
+  companyName: string;
+  contactName: string;
+  email: string;
+  phone?: string;
+  message: string;
+  category: string;
+  timestamp: string;
+  responseType: 'immediate' | 'later' | null;
+  status: 'pending' | 'responding' | 'completed';
+  customerType: 'new' | 'existing';
+}
+
 const CustomerInsightDashboard: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'needs' | 'sentiment'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'needs' | 'sentiment' | 'pending'>('overview');
+  const [pendingChats, setPendingChats] = useState<PendingChat[]>([]);
+  const [selectedChat, setSelectedChat] = useState<PendingChat | null>(null);
+  const [showResponseModal, setShowResponseModal] = useState(false);
+  const [chatFilter, setChatFilter] = useState<'new' | 'existing'>('new');
+  const [showReplyModal, setShowReplyModal] = useState(false);
+  const [replyMessage, setReplyMessage] = useState('');
 
   // モックデータ
   const highProbabilityDeals: CustomerInsight[] = [
@@ -98,6 +118,120 @@ const CustomerInsightDashboard: React.FC = () => {
     }
   ];
 
+  // モックデータ：要対応チャット
+  const mockPendingChats: PendingChat[] = [
+    {
+      id: 'chat-1',
+      companyName: '株式会社デジタルイノベーション',
+      contactName: '田中太郎',
+      email: 'tanaka@digital-innovation.jp',
+      phone: '03-1234-5678',
+      message: 'AIを活用した営業支援システムを探しています。月次レポートの自動生成と商談予測機能が必須です。',
+      category: 'AIソリューション',
+      timestamp: '2025-08-30 10:23',
+      responseType: null,
+      status: 'pending',
+      customerType: 'new'
+    },
+    {
+      id: 'chat-2',
+      companyName: 'グローバルテック株式会社',
+      contactName: '佐藤花子',
+      email: 'sato@globaltech.co.jp',
+      message: '現在のシステムが老朽化しており、クラウド移行を検討中です。セキュリティとコストが気になります。',
+      category: 'クラウド移行',
+      timestamp: '2025-08-30 09:45',
+      responseType: 'immediate',
+      status: 'responding',
+      customerType: 'new'
+    },
+    {
+      id: 'chat-3',
+      companyName: 'スマートソリューションズ',
+      contactName: '鈴木一郎',
+      email: 'suzuki@smart-solutions.com',
+      phone: '06-9876-5432',
+      message: '業務効率化のためのワークフロー自動化ツールを導入したいです。',
+      category: '業務効率化',
+      timestamp: '2025-08-30 08:30',
+      responseType: 'later',
+      status: 'pending',
+      customerType: 'new'
+    },
+    {
+      id: 'chat-4',
+      companyName: 'フューチャーシステムズ',
+      contactName: '山田次郎',
+      email: 'yamada@future-systems.com',
+      phone: '045-555-1234',
+      message: '現在利用中のダッシュボード機能に新しい分析指標を追加したいです。カスタマイズは可能でしょうか？',
+      category: '機能追加',
+      timestamp: '2025-08-30 11:15',
+      responseType: null,
+      status: 'pending',
+      customerType: 'existing'
+    },
+    {
+      id: 'chat-5',
+      companyName: 'アドバンス株式会社',
+      contactName: '高橋美香',
+      email: 'takahashi@advance.co.jp',
+      message: '契約更新の時期が近づいていますが、プランの見直しを検討しています。上位プランの詳細を教えてください。',
+      category: '契約更新',
+      timestamp: '2025-08-30 10:45',
+      responseType: null,
+      status: 'pending',
+      customerType: 'existing'
+    },
+    {
+      id: 'chat-6',
+      companyName: 'ビジネスパートナーズ',
+      contactName: '伊藤健一',
+      email: 'ito@business-partners.jp',
+      phone: '06-7777-8888',
+      message: 'システムのレスポンスが遅いとユーザーから報告がありました。パフォーマンスの改善をお願いします。',
+      category: '技術サポート',
+      timestamp: '2025-08-30 09:30',
+      responseType: 'immediate',
+      status: 'responding',
+      customerType: 'existing'
+    }
+  ];
+
+  // useEffectフックでローカルストレージからデータを取得
+  React.useEffect(() => {
+    // ローカルストレージから要対応チャットを取得
+    const storedChats = localStorage.getItem('pendingChats');
+    if (storedChats) {
+      const parsedChats = JSON.parse(storedChats);
+      // 古いデータにcustomerTypeがない場合はデフォルトで'new'を設定
+      const chatsWithType = parsedChats.map((chat: any) => ({
+        ...chat,
+        customerType: chat.customerType || 'new'
+      }));
+      setPendingChats(chatsWithType);
+    } else {
+      // ローカルストレージにデータがない場合はモックデータを使用
+      setPendingChats(mockPendingChats);
+    }
+    
+    // 定期的に更新（5秒ごと）
+    const interval = setInterval(() => {
+      const updatedChats = localStorage.getItem('pendingChats');
+      if (updatedChats) {
+        const parsedChats = JSON.parse(updatedChats);
+        // 古いデータにcustomerTypeがない場合はデフォルトで'new'を設定
+        const chatsWithType = parsedChats.map((chat: any) => ({
+          ...chat,
+          customerType: chat.customerType || 'new'
+        }));
+        setPendingChats(chatsWithType);
+      }
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, []);
+
   const lowSatisfactionCustomers: SentimentData[] = [
     {
       id: '4',
@@ -146,6 +280,96 @@ const CustomerInsightDashboard: React.FC = () => {
     if (score >= 0.4) return { symbol: 'ー', color: 'text-gray-600' };
     if (score >= 0.2) return { symbol: '△', color: 'text-yellow-600' };
     return { symbol: '×', color: 'text-red-600' };
+  };
+
+  const getSentimentIcon = (score: number) => {
+    if (score >= 0.7) return <Heart className="w-4 h-4 text-green-500" />;
+    if (score >= 0.4) return <Heart className="w-4 h-4 text-yellow-500" />;
+    return <Frown className="w-4 h-4 text-red-500" />;
+  };
+
+  const handleChatResponse = (chatId: string, responseType: 'immediate' | 'later') => {
+    setPendingChats(prev => 
+      prev.map(chat => 
+        chat.id === chatId 
+          ? { ...chat, responseType, status: responseType === 'immediate' ? 'responding' : 'pending' }
+          : chat
+      )
+    );
+    setShowResponseModal(false);
+    
+    // 2営業日以内の返信を選択した場合のメッセージ
+    if (responseType === 'later') {
+      // 自動返信メッセージを送信
+      const autoReply = {
+        chatId,
+        message: 'お問い合わせありがとうございます。\n2営業日以内に担当者よりご連絡させていただきます。',
+        sender: 'company',
+        timestamp: new Date().toISOString()
+      };
+      
+      // 既存のメッセージを取得して追加
+      const existingMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
+      existingMessages.push(autoReply);
+      localStorage.setItem('chatMessages', JSON.stringify(existingMessages));
+      
+      alert('お客様に「2営業日以内にご連絡いたします」というメッセージが送信されました。');
+      setSelectedChat(null);
+    } else {
+      // 即時対応の場合、返信モーダルを表示
+      setShowReplyModal(true);
+      setReplyMessage('');
+    }
+  };
+
+  const handleSendReply = () => {
+    if (!replyMessage.trim() || !selectedChat) return;
+    
+    // 返信メッセージを保存
+    const reply = {
+      chatId: selectedChat.id,
+      message: replyMessage,
+      sender: 'company',
+      timestamp: new Date().toISOString()
+    };
+    
+    // 既存のメッセージを取得して追加
+    const existingMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
+    existingMessages.push(reply);
+    localStorage.setItem('chatMessages', JSON.stringify(existingMessages));
+    
+    // チャットのステータスを更新
+    setPendingChats(prev => 
+      prev.map(chat => 
+        chat.id === selectedChat.id
+          ? { ...chat, status: 'responding' }
+          : chat
+      )
+    );
+    
+    // モーダルを閉じる
+    setShowReplyModal(false);
+    setReplyMessage('');
+    alert('返信を送信しました。');
+    setSelectedChat(null);
+  };
+
+  const handleChatClick = (chat: PendingChat) => {
+    // 実際の実装では、ここでチャット画面に遷移
+    window.location.href = `/chat/${chat.id}`;
+  };
+
+  const getStatusBadge = (status: PendingChat['status'], responseType: PendingChat['responseType']) => {
+    if (status === 'completed') {
+      return <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded">対応済み</span>;
+    }
+    if (status === 'responding') {
+      return <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">対応中</span>;
+    }
+    if (responseType === 'later') {
+      return <span className="bg-yellow-100 text-yellow-700 text-xs px-2 py-1 rounded">2営業日以内に返信予定</span>;
+    }
+    return <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">要対応</span>;
   };
 
   return (
@@ -200,6 +424,24 @@ const CustomerInsightDashboard: React.FC = () => {
                 <div className="flex items-center gap-2">
                   <Heart className="w-4 h-4" />
                   顧客満足度分析
+                </div>
+              </button>
+              <button
+                onClick={() => setActiveTab('pending')}
+                className={`py-4 px-1 border-b-2 font-medium text-sm ${
+                  activeTab === 'pending'
+                    ? 'border-blue-500 text-blue-600'
+                    : 'border-transparent text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Clock className="w-4 h-4" />
+                  要対応チャット
+                  {pendingChats.filter(c => c.status === 'pending' && !c.responseType).length > 0 && (
+                    <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded-full">
+                      {pendingChats.filter(c => c.status === 'pending' && !c.responseType).length}
+                    </span>
+                  )}
                 </div>
               </button>
             </nav>
@@ -352,6 +594,214 @@ const CustomerInsightDashboard: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* 要対応チャット */}
+          {activeTab === 'pending' && (
+            <div className="p-6">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-semibold text-gray-900">要対応チャット一覧</h2>
+                <div className="flex gap-2 text-sm">
+                  <span className="text-gray-600">
+                    合計: {pendingChats.filter(c => c.customerType === chatFilter).length}件
+                  </span>
+                  <span className="text-red-600 font-semibold">
+                    未対応: {pendingChats.filter(c => c.customerType === chatFilter && c.status === 'pending' && !c.responseType).length}件
+                  </span>
+                </div>
+              </div>
+
+              {/* 新規顧客/既存顧客フィルタータブ */}
+              <div className="flex gap-4 mb-6 border-b border-gray-200">
+                <button
+                  onClick={() => setChatFilter('new')}
+                  className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
+                    chatFilter === 'new' 
+                      ? 'text-blue-600' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  新規顧客
+                  {chatFilter === 'new' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                  )}
+                </button>
+                <button
+                  onClick={() => setChatFilter('existing')}
+                  className={`pb-3 px-1 text-sm font-medium transition-colors relative ${
+                    chatFilter === 'existing' 
+                      ? 'text-blue-600' 
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  既存顧客
+                  {chatFilter === 'existing' && (
+                    <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600" />
+                  )}
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                {pendingChats
+                  .filter(chat => chat.customerType === chatFilter)
+                  .map((chat) => (
+                  <div key={chat.id} className="bg-white border rounded-lg p-6 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-3">
+                          <h3 className="text-lg font-semibold text-gray-900">{chat.companyName}</h3>
+                          <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
+                            {chat.category}
+                          </span>
+                          {getStatusBadge(chat.status, chat.responseType)}
+                        </div>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <User className="w-4 h-4" />
+                            <span>{chat.contactName}</span>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Mail className="w-4 h-4" />
+                            <span>{chat.email}</span>
+                          </div>
+                          {chat.phone && (
+                            <div className="flex items-center gap-2 text-sm text-gray-600">
+                              <Phone className="w-4 h-4" />
+                              <span>{chat.phone}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-2 text-sm text-gray-600">
+                            <Clock className="w-4 h-4" />
+                            <span>{chat.timestamp}</span>
+                          </div>
+                        </div>
+
+                        <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                          <p className="text-sm font-semibold text-gray-700 mb-2">お問い合わせ内容：</p>
+                          <p className="text-sm text-gray-800">{chat.message}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex gap-3">
+                      {chat.status === 'pending' && !chat.responseType && (
+                        <>
+                          <button
+                            onClick={() => {
+                              setSelectedChat(chat);
+                              setShowResponseModal(true);
+                            }}
+                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                          >
+                            対応開始
+                          </button>
+                        </>
+                      )}
+                      <button
+                        onClick={() => handleChatClick(chat)}
+                        className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                      >
+                        チャットを確認
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* 対応選択モーダル */}
+              {showResponseModal && selectedChat && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 max-w-md w-full">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      ⚡ 担当者への通知
+                    </h3>
+                    <p className="text-gray-700 mb-6">
+                      {selectedChat.companyName}様からの問い合わせにどのように対応しますか？
+                    </p>
+                    <div className="space-y-3">
+                      <button
+                        onClick={() => handleChatResponse(selectedChat.id, 'immediate')}
+                        className="w-full bg-green-600 text-white px-4 py-3 rounded-lg hover:bg-green-700 transition-colors text-left"
+                      >
+                        <div className="font-semibold">すぐに対応する</div>
+                        <div className="text-sm opacity-90 mt-1">担当者がすぐにチャットで返信します</div>
+                      </button>
+                      <button
+                        onClick={() => handleChatResponse(selectedChat.id, 'later')}
+                        className="w-full bg-blue-600 text-white px-4 py-3 rounded-lg hover:bg-blue-700 transition-colors text-left"
+                      >
+                        <div className="font-semibold">2営業日以内に返信</div>
+                        <div className="text-sm opacity-90 mt-1">自動で「2営業日以内にご連絡いたします」と返信</div>
+                      </button>
+                      <button
+                        onClick={() => {
+                          setShowResponseModal(false);
+                          setSelectedChat(null);
+                        }}
+                        className="w-full bg-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        キャンセル
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* 返信モーダル */}
+              {showReplyModal && selectedChat && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                  <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4">
+                      💬 チャット返信
+                    </h3>
+                    <div className="mb-4">
+                      <p className="text-sm text-gray-600">返信先: {selectedChat.companyName}様</p>
+                      <div className="mt-2 p-3 bg-gray-50 rounded-lg">
+                        <p className="text-sm text-gray-700">
+                          <strong>お問い合わせ内容:</strong><br />
+                          {selectedChat.message}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        返信メッセージ
+                      </label>
+                      <textarea
+                        value={replyMessage}
+                        onChange={(e) => setReplyMessage(e.target.value)}
+                        className="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        rows={6}
+                        placeholder="お客様への返信メッセージを入力してください..."
+                      />
+                    </div>
+                    <div className="flex gap-3 justify-end">
+                      <button
+                        onClick={() => {
+                          setShowReplyModal(false);
+                          setReplyMessage('');
+                        }}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors"
+                      >
+                        キャンセル
+                      </button>
+                      <button
+                        onClick={handleSendReply}
+                        disabled={!replyMessage.trim()}
+                        className={`px-4 py-2 rounded-lg transition-colors ${
+                          replyMessage.trim()
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        }`}
+                      >
+                        送信
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

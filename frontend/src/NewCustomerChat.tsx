@@ -2,13 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Send, MessageCircle, User, Mail, Building, Phone } from 'lucide-react';
 import CategorySelector from './CategorySelector';
 import { generateAIResponse } from './companyKnowledge';
+import actionCableService from './services/actionCable';
 
 interface Message {
   id: number;
   text: string;
-  sender: 'user' | 'bot';
+  sender: 'user' | 'bot' | 'company';
   timestamp: Date;
   category?: string;
+  role?: 'user' | 'assistant' | 'system' | 'company';
 }
 
 const NewCustomerChat: React.FC = () => {
@@ -32,6 +34,8 @@ const NewCustomerChat: React.FC = () => {
     email: '',
     message: ''
   });
+  const [conversationId, setConversationId] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
 
   const categoryNames: { [key: string]: string } = {
     service: 'サービス概要・能力範囲',
@@ -81,8 +85,42 @@ const NewCustomerChat: React.FC = () => {
     ]
   };
 
-  // 初回アクセス時の段階的表示
+  // 初回アクセス時の段階的表示とActionCable接続
   useEffect(() => {
+    // URLからconversationIdを取得または新規生成
+    const pathId = window.location.pathname.split('/').pop();
+    const convId = pathId && pathId !== 'chat' ? pathId : `chat-${Date.now()}`;
+    setConversationId(convId);
+
+    // ActionCableに接続
+    const subscription = actionCableService.subscribeToConversation(convId, {
+      onConnected: () => {
+        console.log('WebSocket connected');
+        setIsConnected(true);
+      },
+      onDisconnected: () => {
+        console.log('WebSocket disconnected');
+        setIsConnected(false);
+      },
+      onReceived: (data) => {
+        if (data.message) {
+          const newMessage: Message = {
+            id: data.message.id || Date.now(),
+            text: data.message.content,
+            sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
+            timestamp: new Date(data.message.created_at || Date.now()),
+            role: data.message.role
+          };
+          setMessages(prev => {
+            // 重複を避ける
+            const exists = prev.some(m => m.id === newMessage.id);
+            if (exists) return prev;
+            return [...prev, newMessage];
+          });
+        }
+      }
+    });
+
     // 0.5秒後にボットの挨拶メッセージを表示
     setTimeout(() => {
       const welcomeMessage: Message = {
@@ -99,45 +137,26 @@ const NewCustomerChat: React.FC = () => {
         setShowCategorySelector(true);
       }, 200);
     }, 500);
+
+    // クリーンアップ
+    return () => {
+      actionCableService.unsubscribe();
+    };
   }, []);
 
-  // 企業からの返信を定期的にチェック
-  useEffect(() => {
-    // 現在のURLからチャットIDを取得（実際の実装では適切に取得）
-    const chatId = window.location.pathname.split('/').pop() || `chat-${Date.now()}`;
-    
-    const checkForReplies = () => {
-      const allMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
-      const relevantMessages = allMessages.filter((msg: any) => msg.chatId === chatId);
-      
-      // 企業からの返信を追加
-      relevantMessages.forEach((reply: any) => {
-        // すでに表示されているメッセージはスキップ
-        const exists = messages.some(m => 
-          m.text === reply.message && 
-          m.timestamp.toISOString() === reply.timestamp
-        );
-        
-        if (!exists) {
-          const companyMessage: Message = {
-            id: messages.length + 1000 + Math.random(), // ユニークなID
-            text: reply.message,
-            sender: 'bot',
-            timestamp: new Date(reply.timestamp)
-          };
-          setMessages(prev => [...prev, companyMessage]);
+  // ActionCable経由でメッセージを送信
+  const sendMessageToCable = (content: string, role: 'user' | 'assistant' | 'company' = 'user') => {
+    if (isConnected) {
+      actionCableService.sendMessage({
+        content,
+        role,
+        metadata: {
+          category: selectedCategory,
+          conversationId
         }
       });
-    };
-    
-    // 初回チェック
-    checkForReplies();
-    
-    // 3秒ごとにチェック
-    const interval = setInterval(checkForReplies, 3000);
-    
-    return () => clearInterval(interval);
-  }, [messages]);
+    }
+  };
 
   const handleCategorySelect = (category: string) => {
     setSelectedCategory(category);
@@ -207,25 +226,29 @@ const NewCustomerChat: React.FC = () => {
     if (!inputMessage.trim()) return;
 
     const userMessage: Message = {
-      id: messages.length + 1,
+      id: Date.now(),
       text: inputMessage,
       sender: 'user',
       timestamp: new Date()
     };
 
     setMessages(prev => [...prev, userMessage]);
+    const messageCopy = inputMessage;
     setInputMessage('');
     setIsLoading(true);
 
-    // AI応答を生成
+    // ActionCable経由でメッセージを送信
+    sendMessageToCable(messageCopy, 'user');
+
+    // AI応答を生成（ローカルでも生成）
     setTimeout(() => {
       // 知識ベースを使用してAI応答を生成
       const response = selectedCategory 
-        ? generateAIResponse(inputMessage, selectedCategory, messageCount)
+        ? generateAIResponse(messageCopy, selectedCategory, messageCount)
         : { message: 'ご質問ありがとうございます。詳しくお答えさせていただきます。', showForm: false };
       
       const botMessage: Message = {
-        id: messages.length + 2,
+        id: Date.now() + 1,
         text: response.message,
         sender: 'bot',
         timestamp: new Date()
@@ -233,6 +256,9 @@ const NewCustomerChat: React.FC = () => {
       setMessages(prev => [...prev, botMessage]);
       setIsLoading(false);
       setMessageCount(prev => prev + 1);
+      
+      // アシスタントメッセージも送信
+      sendMessageToCable(response.message, 'assistant');
     }, 1500);
   };
 

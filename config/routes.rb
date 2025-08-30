@@ -1,4 +1,7 @@
 Rails.application.routes.draw do
+  # ActionCable
+  mount ActionCable.server => '/cable'
+  
   # Sidekiq Web UI (開発環境のみ)
   if Rails.env.development?
     require 'sidekiq/web'

@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { TrendingUp, Users, MessageCircle, Star, AlertTriangle, Eye, ChevronRight, Calendar, Target, Heart, Frown, ArrowUp, ArrowDown, Clock, CheckCircle, User, Building, Mail, Phone } from 'lucide-react';
+import actionCableService from './services/actionCable';
 
 interface CustomerInsight {
   id: string;
@@ -300,21 +301,26 @@ const CustomerInsightDashboard: React.FC = () => {
     
     // 2営業日以内の返信を選択した場合のメッセージ
     if (responseType === 'later') {
-      // 自動返信メッセージを送信
-      const autoReply = {
-        chatId,
-        message: 'お問い合わせありがとうございます。\n2営業日以内に担当者よりご連絡させていただきます。',
-        sender: 'company',
-        timestamp: new Date().toISOString()
-      };
-      
-      // 既存のメッセージを取得して追加
-      const existingMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
-      existingMessages.push(autoReply);
-      localStorage.setItem('chatMessages', JSON.stringify(existingMessages));
-      
-      alert('お客様に「2営業日以内にご連絡いたします」というメッセージが送信されました。');
-      setSelectedChat(null);
+      // ActionCableで自動返信メッセージを送信
+      const subscription = actionCableService.subscribeToConversation(chatId, {
+        onConnected: () => {
+          actionCableService.sendMessage({
+            content: 'お問い合わせありがとうございます。\n2営業日以内に担当者よりご連絡させていただきます。',
+            role: 'company',
+            metadata: {
+              chatId,
+              sender: 'company',
+              timestamp: new Date().toISOString()
+            }
+          });
+          
+          alert('お客様に「2営業日以内にご連絡いたします」というメッセージが送信されました。');
+          setSelectedChat(null);
+          
+          // 接続を解除
+          setTimeout(() => actionCableService.unsubscribe(), 1000);
+        }
+      });
     } else {
       // 即時対応の場合、返信モーダルを表示
       setShowReplyModal(true);
@@ -325,33 +331,39 @@ const CustomerInsightDashboard: React.FC = () => {
   const handleSendReply = () => {
     if (!replyMessage.trim() || !selectedChat) return;
     
-    // 返信メッセージを保存
-    const reply = {
-      chatId: selectedChat.id,
-      message: replyMessage,
-      sender: 'company',
-      timestamp: new Date().toISOString()
-    };
-    
-    // 既存のメッセージを取得して追加
-    const existingMessages = JSON.parse(localStorage.getItem('chatMessages') || '[]');
-    existingMessages.push(reply);
-    localStorage.setItem('chatMessages', JSON.stringify(existingMessages));
-    
-    // チャットのステータスを更新
-    setPendingChats(prev => 
-      prev.map(chat => 
-        chat.id === selectedChat.id
-          ? { ...chat, status: 'responding' }
-          : chat
-      )
-    );
-    
-    // モーダルを閉じる
-    setShowReplyModal(false);
-    setReplyMessage('');
-    alert('返信を送信しました。');
-    setSelectedChat(null);
+    // ActionCableで企業返信を送信
+    const subscription = actionCableService.subscribeToConversation(selectedChat.id, {
+      onConnected: () => {
+        // 接続後すぐにメッセージを送信
+        actionCableService.sendMessage({
+          content: replyMessage,
+          role: 'company',
+          metadata: {
+            chatId: selectedChat.id,
+            sender: 'company',
+            timestamp: new Date().toISOString()
+          }
+        });
+        
+        // チャットのステータスを更新
+        setPendingChats(prev => 
+          prev.map(chat => 
+            chat.id === selectedChat.id
+              ? { ...chat, status: 'responding' }
+              : chat
+          )
+        );
+        
+        // モーダルを閉じる
+        setShowReplyModal(false);
+        setReplyMessage('');
+        alert('返信を送信しました。');
+        setSelectedChat(null);
+        
+        // 接続を解除
+        setTimeout(() => actionCableService.unsubscribe(), 1000);
+      }
+    });
   };
 
   const handleChatClick = (chat: PendingChat) => {

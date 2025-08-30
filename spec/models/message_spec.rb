@@ -8,7 +8,7 @@ RSpec.describe Message, type: :model do
   describe 'validations' do
     it { is_expected.to validate_presence_of(:content) }
     it { is_expected.to validate_presence_of(:role) }
-    it { is_expected.to validate_inclusion_of(:role).in_array(%w[user assistant system]) }
+    it { is_expected.to validate_inclusion_of(:role).in_array(%w[user assistant system company]) }
   end
 
   describe 'scopes' do
@@ -16,18 +16,26 @@ RSpec.describe Message, type: :model do
     let!(:user_message) { create(:message, conversation: conversation, role: 'user') }
     let!(:assistant_message) { create(:message, conversation: conversation, role: 'assistant') }
     let!(:system_message) { create(:message, conversation: conversation, role: 'system') }
+    let!(:company_message) { create(:message, conversation: conversation, role: 'company') }
 
     describe '.user_messages' do
       it 'returns only user messages' do
         expect(described_class.user_messages).to include(user_message)
-        expect(described_class.user_messages).not_to include(assistant_message, system_message)
+        expect(described_class.user_messages).not_to include(assistant_message, system_message, company_message)
       end
     end
 
     describe '.assistant_messages' do
       it 'returns only assistant messages' do
         expect(described_class.assistant_messages).to include(assistant_message)
-        expect(described_class.assistant_messages).not_to include(user_message, system_message)
+        expect(described_class.assistant_messages).not_to include(user_message, system_message, company_message)
+      end
+    end
+
+    describe '.by_role' do
+      it 'returns messages with specified role' do
+        expect(described_class.by_role('company')).to include(company_message)
+        expect(described_class.by_role('company')).not_to include(user_message, assistant_message, system_message)
       end
     end
 
@@ -85,6 +93,30 @@ RSpec.describe Message, type: :model do
     it 'returns false for other roles' do
       message = build(:message, role: 'user')
       expect(message.assistant?).to be false
+    end
+  end
+
+  describe '#company?' do
+    it 'returns true for company role' do
+      message = build(:message, role: 'company')
+      expect(message.company?).to be true
+    end
+
+    it 'returns false for other roles' do
+      message = build(:message, role: 'user')
+      expect(message.company?).to be false
+    end
+  end
+
+  describe '#from_company?' do
+    it 'returns true for company role' do
+      message = build(:message, role: 'company')
+      expect(message.from_company?).to be true
+    end
+
+    it 'returns false for other roles' do
+      message = build(:message, role: 'assistant')
+      expect(message.from_company?).to be false
     end
   end
 

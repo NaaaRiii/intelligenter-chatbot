@@ -6,7 +6,8 @@ import {
   Users, 
   DollarSign, 
   Award, 
-  MessageCircle 
+  MessageCircle,
+  HelpCircle 
 } from 'lucide-react';
 
 interface CategorySelectorProps {
@@ -98,6 +99,18 @@ const CategorySelector: React.FC<CategorySelectorProps> = ({ onSelect }) => {
         'まず何から相談すれば良い？',
         '無料相談の範囲は？',
         '提案資料の作成は可能？'
+      ]
+    },
+    {
+      id: 'faq',
+      title: 'よくある質問（FAQ）',
+      icon: HelpCircle,
+      color: '#6366f1',
+      bgColor: '#e0e7ff',
+      questions: [
+        '料金プランや契約条件を確認',
+        'サポート体制について知りたい',
+        'よくある質問を見る'
       ]
     }
   ];

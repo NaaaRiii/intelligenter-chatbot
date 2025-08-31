@@ -50,6 +50,28 @@ const CustomerInsightDashboard: React.FC = () => {
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
 
+  // カテゴリー名のマッピング（英語キーと日本語表示名の両方に対応）
+  const categoryDisplayNames: { [key: string]: string } = {
+    // 英語キー
+    'service': '🏢 サービス概要',
+    'tech': '💻 技術・システム',
+    'marketing': '📈 マーケティング',
+    'project': '👥 プロジェクト',
+    'cost': '💰 費用・契約',
+    'case': '🏆 実績・事例',
+    'consultation': '💬 初回相談',
+    // 日本語キー（後方互換性）
+    'サービス概要・能力範囲': '🏢 サービス概要',
+    '技術・システム関連': '💻 技術・システム',
+    'マーケティング戦略': '📈 マーケティング',
+    'プロジェクト進行・体制': '👥 プロジェクト',
+    '費用・契約': '💰 費用・契約',
+    '実績・事例': '🏆 実績・事例',
+    '初回相談・問い合わせ': '💬 初回相談',
+    'サポート': '🛠️ サポート',
+    'その他': '📝 その他'
+  };
+
   // モックデータ
   const highProbabilityDeals: CustomerInsight[] = [
     {
@@ -779,9 +801,17 @@ const CustomerInsightDashboard: React.FC = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
                           <h3 className="text-lg font-semibold text-gray-900">{chat.companyName}</h3>
-                          <span className="bg-blue-100 text-blue-700 text-xs px-2 py-1 rounded">
-                            {chat.category}
-                          </span>
+                          {/* カテゴリー表示を強調 */}
+                          {chat.customerType === 'new' && (
+                            <span className="bg-gradient-to-r from-blue-500 to-indigo-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-sm">
+                              {categoryDisplayNames[chat.category] || chat.category}
+                            </span>
+                          )}
+                          {chat.customerType === 'existing' && chat.category && (
+                            <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
+                              {chat.category}
+                            </span>
+                          )}
                           {getStatusBadge(chat.status, chat.responseType)}
                         </div>
                         

@@ -44,5 +44,8 @@ module IntelligenterChatbot
     # Middleware like session, flash, cookies can be added back manually.
     # Skip views, helpers and assets when generating a new resource.
     config.api_only = true
+    
+    # アプリケーションのベースURL設定（Slack通知で使用）
+    config.app_url = ENV['APP_URL'] || 'http://localhost:4000'
   end
 end

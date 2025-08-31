@@ -26,6 +26,30 @@ class ConversationChannel < ApplicationCable::Channel
       }
     )
 
+    # 最初のユーザーメッセージで新規顧客の場合、Slack通知を送信
+    if message.user? && 
+       @conversation.messages.where(role: 'user').count == 1 &&
+       @conversation.metadata&.dig('customerType') == 'new'
+      
+      category = @conversation.metadata&.dig('category')
+      
+      if category.present?
+        customer_name = @conversation.metadata['contactName'] || 
+                       @conversation.metadata['customer_name'] ||
+                       @conversation.guest_user_id || 
+                       "ゲストユーザー"
+        
+        SlackNotificationJob.perform_later(
+          category: category,
+          customer_name: customer_name,
+          message: message.content,
+          conversation_id: @conversation.id
+        )
+        
+        Rails.logger.info "Slack notification queued for #{category} inquiry: #{@conversation.id}"
+      end
+    end
+
     # アシスタントの返信が必要な場合は非同期ジョブをキュー
     if message.user?
       GenerateAssistantResponseJob.perform_later(@conversation.id)

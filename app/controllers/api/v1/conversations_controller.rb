@@ -56,6 +56,12 @@ module Api
         @conversation.guest_user_id = @user_id if @user_id.present?
         @conversation.save!
         
+        # マーケティングカテゴリーの新規顧客の場合、Slack通知を送信
+        if @conversation.metadata&.dig('category') == 'marketing' && 
+           @conversation.metadata&.dig('customerType') == 'new'
+          send_slack_notification_for_marketing
+        end
+        
         render json: {
           conversation: @conversation.as_json(
             include: {
@@ -94,6 +100,13 @@ module Api
           new_metadata = existing_metadata.merge(new_metadata_params)
           Rails.logger.info "Updating conversation #{@conversation.id} metadata: #{existing_metadata} -> #{new_metadata}"
           @conversation.metadata = new_metadata
+          
+          # マーケティングカテゴリーが選択された場合にSlack通知を送信
+          if new_metadata['category'] == 'marketing' && 
+             new_metadata['customer_type'] == 'new' &&
+             existing_metadata['category'] != 'marketing'
+            send_slack_notification_for_marketing
+          end
         end
         
         # その他のパラメータも更新（metadataを除く）
@@ -165,6 +178,28 @@ module Api
         else
           params.require(:conversation).permit(:session_id, :status, :guest_user_id)
         end
+      end
+
+      def send_slack_notification_for_marketing
+        # 最初のメッセージを取得（お客様の問い合わせ内容）
+        first_message = @conversation.messages.where(role: 'user').chronological.first
+        return unless first_message
+
+        customer_name = @conversation.metadata['customer_name'] || 
+                       @conversation.guest_user_id || 
+                       "ゲストユーザー"
+
+        # 非同期でSlack通知を送信
+        SlackNotificationJob.perform_later(
+          category: 'marketing',
+          customer_name: customer_name,
+          message: first_message.content,
+          conversation_id: @conversation.id
+        )
+        
+        Rails.logger.info "Slack notification queued for marketing inquiry: #{@conversation.id}"
+      rescue => e
+        Rails.logger.error "Failed to queue Slack notification: #{e.message}"
       end
     end
   end

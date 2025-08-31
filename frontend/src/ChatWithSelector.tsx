@@ -14,6 +14,11 @@ const ChatWithSelector: React.FC = () => {
       setHasConversationId(true);
       setCustomerType('new'); // NewCustomerChatを使用（会話履歴表示機能があるため）
     }
+    
+    // URLパスに'/chat/new'がある場合は新規顧客として直接チャット画面を表示
+    if (window.location.pathname === '/chat/new') {
+      setCustomerType('new');
+    }
   }, []);
 
   const handleCustomerTypeSelect = (type: 'new' | 'existing') => {

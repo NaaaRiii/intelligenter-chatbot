@@ -116,7 +116,8 @@ const NewCustomerChat: React.FC = () => {
     project: 'プロジェクト進行・体制',
     cost: '費用・契約',
     case: '実績・事例',
-    consultation: '初回相談・問い合わせ'
+    consultation: '初回相談・問い合わせ',
+    faq: 'よくある質問（FAQ）'
   };
 
   const categoryResponses: { [key: string]: string[] } = {
@@ -397,6 +398,12 @@ const NewCustomerChat: React.FC = () => {
   };
 
   const handleCategorySelect = (category: string) => {
+    // FAQカテゴリーが選択された場合はFAQページへ遷移
+    if (category === 'faq') {
+      window.location.href = '/faq';
+      return;
+    }
+    
     setSelectedCategory(category);
     setShowCategorySelector(false);
     

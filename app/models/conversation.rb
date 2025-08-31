@@ -1,6 +1,6 @@
 class Conversation < ApplicationRecord
   # アソシエーション
-  belongs_to :user
+  belongs_to :user, optional: true  # ユーザーはオプショナル（ゲストセッション対応）
   has_many :messages, dependent: :destroy
   has_many :analyses, dependent: :destroy
 

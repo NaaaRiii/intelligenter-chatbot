@@ -38,13 +38,34 @@ class ConversationChannel < ApplicationCable::Channel
     # セッションIDまたは渡されたIDで会話を取得/作成
     conversation_id = params[:conversation_id]
     
-    if conversation_id.present?
-      Conversation.find_or_create_by(id: conversation_id) do |conv|
-        conv.session_id = session_id
+    # "chat"や"chat-xxx"のような文字列IDの場合は新規作成
+    if conversation_id.present? && conversation_id.to_s.match?(/^\d+$/)
+      # 数値IDの場合のみ既存の会話を検索
+      conversation = Conversation.find_by(id: conversation_id)
+      if conversation
+        conversation
+      else
+        Conversation.create!(session_id: connection.uuid, status: 'active')
       end
     else
-      Conversation.find_or_create_by(session_id: session_id) do |conv|
-        conv.status = 'active'
+      # 文字列IDまたはIDなしの場合は既存の会話を検索または新規作成
+      # connection.uuidはActionCableのセッションID（タブごと）
+      session_id_value = connection.uuid
+      
+      # ユーザーIDをCookieから取得
+      user_id_value = cookies[:user_id]
+      
+      # 既存の会話を検索（同じタブセッションで）
+      conversation = Conversation.find_by(session_id: session_id_value)
+      if conversation
+        conversation
+      else
+        # 新規作成時にユーザーIDも保存
+        Conversation.create!(
+          session_id: session_id_value, 
+          guest_user_id: user_id_value,
+          status: 'active'
+        )
       end
     end
   end

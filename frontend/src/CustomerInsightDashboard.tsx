@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { TrendingUp, Users, MessageCircle, Star, AlertTriangle, Eye, ChevronRight, Calendar, Target, Heart, Frown, ArrowUp, ArrowDown, Clock, CheckCircle, User, Building, Mail, Phone } from 'lucide-react';
 import actionCableService from './services/actionCable';
+import sessionManager from './services/sessionManager';
 
 interface CustomerInsight {
   id: string;
@@ -27,7 +28,7 @@ interface SentimentData {
 }
 
 interface PendingChat {
-  id: string;
+  id: string | number; // データベースのIDは数値
   companyName: string;
   contactName: string;
   email: string;
@@ -199,36 +200,107 @@ const CustomerInsightDashboard: React.FC = () => {
     }
   ];
 
-  // useEffectフックでローカルストレージからデータを取得
+  // useEffectフックでデータベースからデータを取得
   React.useEffect(() => {
-    // ローカルストレージから要対応チャットを取得
-    const storedChats = localStorage.getItem('pendingChats');
-    if (storedChats) {
-      const parsedChats = JSON.parse(storedChats);
-      // 古いデータにcustomerTypeがない場合はデフォルトで'new'を設定
-      const chatsWithType = parsedChats.map((chat: any) => ({
-        ...chat,
-        customerType: chat.customerType || 'new'
-      }));
-      setPendingChats(chatsWithType);
-    } else {
-      // ローカルストレージにデータがない場合はモックデータを使用
-      setPendingChats(mockPendingChats);
-    }
-    
-    // 定期的に更新（5秒ごと）
-    const interval = setInterval(() => {
-      const updatedChats = localStorage.getItem('pendingChats');
-      if (updatedChats) {
-        const parsedChats = JSON.parse(updatedChats);
-        // 古いデータにcustomerTypeがない場合はデフォルトで'new'を設定
-        const chatsWithType = parsedChats.map((chat: any) => ({
-          ...chat,
-          customerType: chat.customerType || 'new'
-        }));
-        setPendingChats(chatsWithType);
+    const fetchConversations = async () => {
+      try {
+        // ユーザーIDを取得
+        const userId = sessionManager.getUserId();
+        
+        // APIから会話データを取得
+        const response = await fetch('http://localhost:3000/api/v1/conversations', {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId
+          },
+          credentials: 'include'
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          
+          // データベースの会話をPendingChat形式に変換
+          const conversationsWithMessages = data.conversations
+            .filter((conv: any) => conv.messages && conv.messages.length > 0)
+            .map((conv: any) => {
+              const lastMessage = conv.messages[conv.messages.length - 1];
+              const firstUserMessage = conv.messages.find((m: any) => m.role === 'user');
+              
+              // まずmetadataから情報を取得
+              let formData = {
+                companyName: conv.metadata?.company || '不明',
+                contactName: conv.metadata?.contactName || '不明',
+                email: conv.metadata?.email || '不明',
+                phone: conv.metadata?.phone || '',
+                category: conv.metadata?.category || '一般'
+              };
+              
+              // metadataがない場合はメッセージから抽出
+              if (!conv.metadata?.company && firstUserMessage && firstUserMessage.content) {
+                const content = firstUserMessage.content;
+                // コロンの前後のスペースも考慮
+                const companyMatch = content.match(/会社名[:：]\s*(.+?)(?:\n|$)/);
+                const nameMatch = content.match(/お名前[:：]\s*(.+?)(?:\n|$)/);
+                const emailMatch = content.match(/メールアドレス[:：]\s*(.+?)(?:\n|$)/);
+                const phoneMatch = content.match(/電話番号[:：]\s*(.+?)(?:\n|$)/);
+                const categoryMatch = content.match(/お問い合わせカテゴリ[:：]\s*(.+?)(?:\n|$)/);
+                const messageMatch = content.match(/お問い合わせ内容[:：]\s*([\s\S]+?)(?:\n\n|$)/);
+                
+                if (companyMatch) formData.companyName = companyMatch[1].trim();
+                if (nameMatch) formData.contactName = nameMatch[1].trim();
+                if (emailMatch) formData.email = emailMatch[1].trim();
+                if (phoneMatch) formData.phone = phoneMatch[1].trim();
+                if (categoryMatch) formData.category = categoryMatch[1].trim();
+              }
+              
+              // メッセージ内容を取得
+              let messageContent = '内容なし';
+              if (firstUserMessage && firstUserMessage.content) {
+                const messageMatch = firstUserMessage.content.match(/お問い合わせ内容[:：]\s*([\s\S]+?)(?:\n\n|$)/);
+                if (messageMatch) {
+                  messageContent = messageMatch[1].trim();
+                } else if (!firstUserMessage.content.includes('会社名')) {
+                  // フォームデータでない場合は全体をメッセージとして扱う
+                  messageContent = firstUserMessage.content;
+                }
+              }
+              
+              // 新規/既存の判定：最初のメッセージが今日作成されたかどうかで判定
+              const isNewCustomer = conv.messages.length <= 2; // メッセージが2件以下なら新規
+              
+              return {
+                id: conv.id, // 数値のID
+                companyName: formData.companyName,
+                contactName: formData.contactName,
+                email: formData.email,
+                phone: formData.phone,
+                message: messageContent,
+                category: formData.category,
+                timestamp: new Date(conv.updated_at).toLocaleString('ja-JP'),
+                responseType: null,
+                status: conv.status === 'active' ? 'pending' : 'completed',
+                customerType: isNewCustomer ? 'new' : 'existing'
+              };
+            });
+          
+          setPendingChats(conversationsWithMessages);
+        } else {
+          console.error('Failed to fetch conversations:', response.status);
+          // エラー時はモックデータを使用
+          setPendingChats(mockPendingChats);
+        }
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+        // エラー時はモックデータを使用
+        setPendingChats(mockPendingChats);
       }
-    }, 5000);
+    };
+    
+    // 初回データ取得
+    fetchConversations();
+    
+    // 定期的に更新（10秒ごと）
+    const interval = setInterval(fetchConversations, 10000);
     
     return () => clearInterval(interval);
   }, []);
@@ -289,20 +361,21 @@ const CustomerInsightDashboard: React.FC = () => {
     return <Frown className="w-4 h-4 text-red-500" />;
   };
 
-  const handleChatResponse = (chatId: string, responseType: 'immediate' | 'later') => {
-    setPendingChats(prev => 
-      prev.map(chat => 
-        chat.id === chatId 
-          ? { ...chat, responseType, status: responseType === 'immediate' ? 'responding' : 'pending' }
-          : chat
-      )
+  const handleChatResponse = (chatId: string | number, responseType: 'immediate' | 'later') => {
+    const updatedChats = pendingChats.map(chat => 
+      chat.id === chatId 
+        ? { ...chat, responseType, status: responseType === 'immediate' ? 'responding' as const : 'pending' as const }
+        : chat
     );
+    
+    setPendingChats(updatedChats);
+    
     setShowResponseModal(false);
     
     // 2営業日以内の返信を選択した場合のメッセージ
     if (responseType === 'later') {
-      // ActionCableで自動返信メッセージを送信
-      const subscription = actionCableService.subscribeToConversation(chatId, {
+      // ActionCableで自動返信メッセージを送信（数値IDを文字列に変換）
+      const subscription = actionCableService.subscribeToConversation(String(chatId), {
         onConnected: () => {
           actionCableService.sendMessage({
             content: 'お問い合わせありがとうございます。\n2営業日以内に担当者よりご連絡させていただきます。',
@@ -331,8 +404,8 @@ const CustomerInsightDashboard: React.FC = () => {
   const handleSendReply = () => {
     if (!replyMessage.trim() || !selectedChat) return;
     
-    // ActionCableで企業返信を送信
-    const subscription = actionCableService.subscribeToConversation(selectedChat.id, {
+    // ActionCableで企業返信を送信（数値IDを文字列に変換）
+    const subscription = actionCableService.subscribeToConversation(String(selectedChat.id), {
       onConnected: () => {
         // 接続後すぐにメッセージを送信
         actionCableService.sendMessage({
@@ -346,13 +419,13 @@ const CustomerInsightDashboard: React.FC = () => {
         });
         
         // チャットのステータスを更新
-        setPendingChats(prev => 
-          prev.map(chat => 
-            chat.id === selectedChat.id
-              ? { ...chat, status: 'responding' }
-              : chat
-          )
+        const updatedChatsAfterReply = pendingChats.map(chat => 
+          chat.id === selectedChat.id
+            ? { ...chat, status: 'responding' as const }
+            : chat
         );
+        
+        setPendingChats(updatedChatsAfterReply);
         
         // モーダルを閉じる
         setShowReplyModal(false);
@@ -367,8 +440,8 @@ const CustomerInsightDashboard: React.FC = () => {
   };
 
   const handleChatClick = (chat: PendingChat) => {
-    // 実際の実装では、ここでチャット画面に遷移
-    window.location.href = `/chat/${chat.id}`;
+    // 新しいウィンドウでチャット画面を開く
+    window.open(`http://localhost:4000/chat#${chat.id}`, '_blank');
   };
 
   const getStatusBadge = (status: PendingChat['status'], responseType: PendingChat['responseType']) => {

@@ -4,8 +4,8 @@ import CategorySelector from './CategorySelector';
 import { generateAIResponse } from './companyKnowledge';
 import actionCableService from './services/actionCable';
 import ChatHistory from './components/ChatHistory';
-import AutoResumeChat from './components/AutoResumeChat';
-import SessionManager from './services/sessionManager';
+// import AutoResumeChat from './components/AutoResumeChat';
+import sessionManager from './services/sessionManager';
 
 interface Message {
   id: number;
@@ -14,6 +14,7 @@ interface Message {
   timestamp: Date;
   category?: string;
   role?: 'user' | 'assistant' | 'system' | 'company';
+  isWaiting?: boolean;  // 待機中フラグ
 }
 
 const NewCustomerChat: React.FC = () => {
@@ -156,77 +157,200 @@ const NewCustomerChat: React.FC = () => {
     ]
   };
 
-  // 自動復元のハンドラ
-  const handleConversationLoaded = (data: { conversationId: string; messages: any[] }) => {
-    console.log('Conversation resumed:', data.conversationId);
-    
-    // 復元したメッセージを設定
-    const restoredMessages = data.messages.map((msg: any) => ({
-      id: msg.id,
-      text: msg.content,
-      sender: msg.role === 'company' ? 'company' : msg.role === 'assistant' ? 'bot' : 'user',
-      timestamp: new Date(msg.created_at || Date.now()),
-      role: msg.role
-    }));
-    
-    setMessages(restoredMessages);
-    setConversationId(data.conversationId);
-    setHasResumed(true);
-    setIsLoading(false);
-    setShowCategorySelector(false); // 復元時はカテゴリ選択を表示しない
-    
-    // SessionManagerを更新
-    SessionManager.setCurrentConversationId(data.conversationId);
-  };
+  // 自動復元のハンドラ（現在は使用していない）
+  // const handleConversationLoaded = (data: { conversationId: string; messages: any[] }) => {
+  //   console.log('Conversation resumed:', data.conversationId);
+  //   
+  //   // 復元したメッセージを設定
+  //   const restoredMessages = data.messages.map((msg: any) => ({
+  //     id: msg.id,
+  //     text: msg.content,
+  //     sender: msg.role === 'company' ? 'company' : msg.role === 'assistant' ? 'bot' : 'user',
+  //     timestamp: new Date(msg.created_at || Date.now()),
+  //     role: msg.role
+  //   }));
+  //   
+  //   setMessages(restoredMessages);
+  //   setConversationId(data.conversationId);
+  //   setHasResumed(true);
+  //   setIsLoading(false);
+  //   setShowCategorySelector(false); // 復元時はカテゴリ選択を表示しない
+  //   
+  //   // sessionManagerを更新
+  //   sessionManager.setCurrentConversationId(data.conversationId);
+  // };
 
   // 初回アクセス時の段階的表示とActionCable接続
   useEffect(() => {
-    // セッションIDを取得
-    const sessionId = SessionManager.getSessionId();
-    
-    // URLからconversationIdを取得またはセッションから取得
-    const pathId = window.location.pathname.split('/').pop();
-    const storedConvId = SessionManager.getCurrentConversationId();
-    const convId = pathId && pathId !== 'chat' ? pathId : storedConvId || `chat-${Date.now()}`;
-    
-    if (!storedConvId || storedConvId !== convId) {
-      SessionManager.setCurrentConversationId(convId);
-    }
-    setConversationId(convId);
-
-    // ActionCableに接続
-    const subscription = actionCableService.subscribeToConversation(convId, {
-      onConnected: () => {
-        console.log('WebSocket connected');
-        setIsConnected(true);
-      },
-      onDisconnected: () => {
-        console.log('WebSocket disconnected');
-        setIsConnected(false);
-      },
-      onReceived: (data) => {
-        if (data.message) {
-          const newMessage: Message = {
-            id: data.message.id || Date.now(),
-            text: data.message.content,
-            sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
-            timestamp: new Date(data.message.created_at || Date.now()),
-            role: data.message.role
-          };
-          setMessages(prev => {
-            // 重複を避ける
-            const exists = prev.some(m => m.id === newMessage.id);
-            if (exists) return prev;
-            return [...prev, newMessage];
+    const initializeChat = async () => {
+      // セッションIDを取得
+      const userId = sessionManager.getUserId();
+      const tabSessionId = sessionManager.getTabSessionId();
+      console.log('Initializing chat with userId:', userId, 'tabSessionId:', tabSessionId);
+      
+      // URLからconversationIdを取得（パスまたはハッシュから）
+      const pathId = window.location.pathname.split('/').pop();
+      const hashId = window.location.hash.replace('#', '');
+      let convId: string | null = null;
+      let hasExistingConversation = false;
+      
+      // URLハッシュに数値IDがある場合はそれを優先使用
+      if (hashId && /^\d+$/.test(hashId)) {
+        // 指定された会話を取得
+        try {
+          const response = await fetch(`http://localhost:3000/api/v1/conversations/${hashId}`, {
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Id': userId,
+              'X-Session-Id': tabSessionId
+            },
+            credentials: 'include'
           });
+          
+          if (response.ok) {
+            const data = await response.json();
+            const conversation = data.conversation;
+            
+            if (conversation) {
+              convId = String(conversation.id);
+              hasExistingConversation = true;
+              
+              // sessionStorageに保存してこのタブの会話として設定
+              sessionStorage.setItem('current_conversation_id', convId);
+              
+              // 既存のメッセージを復元
+              if (conversation.messages && conversation.messages.length > 0) {
+                const restoredMessages = conversation.messages.map((msg: any) => ({
+                  id: msg.id,
+                  text: msg.content,
+                  sender: msg.role === 'company' ? 'company' : msg.role === 'assistant' ? 'bot' : 'user',
+                  timestamp: new Date(msg.created_at || Date.now()),
+                  role: msg.role
+                }));
+                setMessages(restoredMessages);
+                setHasResumed(true);
+              }
+            }
+          }
+        } catch (error) {
+          console.error('Error fetching conversation from hash:', error);
         }
       }
-    });
+      // URLパスに数値IDがある場合はそれを使用
+      else if (pathId && pathId !== 'chat' && /^\d+$/.test(pathId)) {
+        convId = pathId;
+        hasExistingConversation = true;
+      } else {
+        // タブごとの会話IDをsessionStorageから取得
+        const storedConvId = sessionStorage.getItem('current_conversation_id');
+        
+        if (storedConvId) {
+          // 既存の会話を復元
+          try {
+            const response = await fetch(`http://localhost:3000/api/v1/conversations/${storedConvId}`, {
+              headers: {
+                'Content-Type': 'application/json',
+                'X-User-Id': userId,
+                'X-Session-Id': tabSessionId
+              },
+              credentials: 'include'
+            });
+            
+            if (response.ok) {
+              const data = await response.json();
+              const conversation = data.conversation;
+              
+              if (conversation && conversation.status === 'active') {
+                convId = String(conversation.id);
+                hasExistingConversation = true;
+                
+                // 既存のメッセージを復元
+                if (conversation.messages && conversation.messages.length > 0) {
+                  const restoredMessages = conversation.messages.map((msg: any) => ({
+                    id: msg.id,
+                    text: msg.content,
+                    sender: msg.role === 'company' ? 'company' : msg.role === 'assistant' ? 'bot' : 'user',
+                    timestamp: new Date(msg.created_at || Date.now()),
+                    role: msg.role
+                  }));
+                  setMessages(restoredMessages);
+                  setHasResumed(true);
+                }
+              }
+            } else if (response.status === 404) {
+              // 会話が見つからない場合はsessionStorageをクリア
+              sessionStorage.removeItem('current_conversation_id');
+            }
+          } catch (error) {
+            console.error('Error fetching conversation:', error);
+            sessionStorage.removeItem('current_conversation_id');
+          }
+        }
+        // storedConvIdがない場合は新しい会話を開始（convId = null）
+      }
+      
+      // 会話IDがない場合は暂定的に空のIDを使用（フォーム送信時に作成）
+      if (!convId) {
+        convId = null; // ActionCableは接続しない
+      }
+      
+      setConversationId(convId);
+      setIsLoading(false);
+      
+      // 会話がある場合のみActionCableに接続
+      if (convId) {
+        // ActionCableに接続
+        const subscription = actionCableService.subscribeToConversation(convId, {
+          onConnected: () => {
+            console.log('WebSocket connected');
+            setIsConnected(true);
+          },
+          onDisconnected: () => {
+            console.log('WebSocket disconnected');
+            setIsConnected(false);
+          },
+          onReceived: (data) => {
+            if (data.message) {
+              const newMessage: Message = {
+                id: data.message.id || Date.now(),
+                text: data.message.content,
+                sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
+                timestamp: new Date(data.message.created_at || Date.now()),
+                role: data.message.role
+              };
+              
+              // 企業からの返信を受信した場合
+              if (data.message.role === 'company') {
+                // 自動返信タイマーをキャンセル
+                if ((window as any).autoReplyTimer) {
+                  clearTimeout((window as any).autoReplyTimer);
+                  (window as any).autoReplyTimer = null;
+                }
+                
+                // 待機中メッセージを削除
+                setMessages(prev => {
+                  const filtered = prev.filter(m => !m.isWaiting);
+                  // 重複を避ける
+                  const exists = filtered.some(m => m.id === newMessage.id);
+                  if (exists) return filtered;
+                  return [...filtered, newMessage];
+                });
+              } else {
+                setMessages(prev => {
+                  // 重複を避ける
+                  const exists = prev.some(m => m.id === newMessage.id);
+                  if (exists) return prev;
+                  return [...prev, newMessage];
+                });
+              }
+            }
+          }
+        });
+      }
 
-    // 復元されなかった場合のみウェルカムメッセージを表示
-    if (!hasResumed) {
-      setTimeout(() => {
-        if (!hasResumed) { // 再確認
+      // 会話が復元されなかった場合はウェルカムメッセージを表示
+      if (!hasExistingConversation) {
+        setTimeout(() => {
           const welcomeMessage: Message = {
             id: 1,
             text: 'こんにちは！お問い合わせありがとうございます。どのようなご用件でしょうか？',
@@ -240,15 +364,19 @@ const NewCustomerChat: React.FC = () => {
           setTimeout(() => {
             setShowCategorySelector(true);
           }, 200);
-        }
-      }, 500);
-    }
+        }, 500);
+      } else {
+        setIsLoading(false);
+      }
+    };
+    
+    initializeChat();
 
     // クリーンアップ
     return () => {
       actionCableService.unsubscribe();
     };
-  }, [hasResumed]);
+  }, []);
 
   // ActionCable経由でメッセージを送信
   const sendMessageToCable = (content: string, role: 'user' | 'assistant' | 'company' = 'user') => {
@@ -368,7 +496,7 @@ const NewCustomerChat: React.FC = () => {
     }, 1500);
   };
 
-  const handleContactSubmit = (e: React.FormEvent) => {
+  const handleContactSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // バリデーション
@@ -403,50 +531,195 @@ const NewCustomerChat: React.FC = () => {
     // エラーをクリア
     setFormErrors({ name: '', company: '', email: '', message: '' });
     
-    // 現在のチャットIDを取得または生成
-    const chatId = window.location.pathname.split('/').pop() || `chat-${Date.now()}`;
-    
-    // 問い合わせデータをローカルストレージに保存（実際はAPIに送信）
-    const pendingChat = {
-      id: chatId,
-      companyName: contactForm.company,
-      contactName: contactForm.name,
-      email: contactForm.email,
-      phone: contactForm.phone,
-      message: contactForm.message,
-      category: selectedCategory || '',
-      timestamp: new Date().toLocaleString('ja-JP'),
-      responseType: null,
-      status: 'pending',
-      customerType: 'new'
-    };
-    
-    // ローカルストレージに保存
-    const existingChats = JSON.parse(localStorage.getItem('pendingChats') || '[]');
-    existingChats.push(pendingChat);
-    localStorage.setItem('pendingChats', JSON.stringify(existingChats));
-    
     // フォームを非表示
     setShowContactForm(false);
     
-    // サンクスメッセージの送信
-    const formMessage: Message = {
+    // 内容確認中メッセージの送信
+    const confirmMessage: Message = {
       id: messages.length + 1,
-      text: `お問い合わせありがとうございます。
+      text: '内容をご確認いたします...',
+      sender: 'bot',
+      timestamp: new Date(),
+      isWaiting: true  // 待機状態のフラグ
+    };
+    setMessages(prev => [...prev, confirmMessage]);
+    
+    try {
+      let realConversationId: number;
+      
+      // 既存の会話IDが設定されているか確認
+      if (conversationId && conversationId !== 'null') {
+        // 既存の会話を使用
+        realConversationId = parseInt(conversationId);
+      } else {
+        // 新しい会話を作成（session_idは毎回新しく生成）
+        const newSessionId = `${sessionManager.getTabSessionId()}-${Date.now()}`;
+        const createResponse = await fetch('http://localhost:3000/api/v1/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': sessionManager.getUserId(),
+            'X-Session-Id': sessionManager.getTabSessionId()
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            conversation: {
+              session_id: newSessionId,  // ユニークなsession_idを使用
+              status: 'active',
+              metadata: {
+                category: selectedCategory || '',
+                company: contactForm.company,
+                contactName: contactForm.name,
+                email: contactForm.email,
+                phone: contactForm.phone
+              }
+            }
+          })
+        });
+        
+        const responseData = await createResponse.json();
+        
+        if (!createResponse.ok) {
+          console.error('Conversation creation error:', responseData);
+          throw new Error(responseData.error || 'Failed to create conversation');
+        }
+        
+        const { conversation } = responseData;
+        realConversationId = conversation.id; // データベースの実際のID
+      }
+      
+      // 新しい会話IDでActionCableに再接続
+      actionCableService.unsubscribe();
+      actionCableService.subscribeToConversation(String(realConversationId), {
+        onConnected: () => {
+          console.log(`Connected to conversation ${realConversationId}`);
+          setIsConnected(true);
+          
+          // フォームデータを含むメッセージを送信
+          const formMessage = `会社名: ${contactForm.company}
+お名前: ${contactForm.name}
+メールアドレス: ${contactForm.email}
+電話番号: ${contactForm.phone || ''}
+お問い合わせカテゴリ: ${categoryNames[selectedCategory] || 'その他'}
+お問い合わせ内容: ${contactForm.message}`;
+          
+          actionCableService.sendMessage({
+            content: formMessage,
+            role: 'user',
+            metadata: {
+              category: selectedCategory,
+              conversationId: realConversationId
+            }
+          });
+        },
+        onDisconnected: () => {
+          console.log('WebSocket disconnected');
+          setIsConnected(false);
+        },
+        onReceived: (data) => {
+          if (data.message) {
+            const newMessage: Message = {
+              id: data.message.id || Date.now(),
+              text: data.message.content,
+              sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
+              timestamp: new Date(data.message.created_at || Date.now()),
+              role: data.message.role
+            };
+            
+            // 企業からの返信を受信した場合
+            if (data.message.role === 'company') {
+              // 自動返信タイマーをキャンセル
+              if ((window as any).autoReplyTimer) {
+                clearTimeout((window as any).autoReplyTimer);
+                (window as any).autoReplyTimer = null;
+              }
+              
+              // 待機中メッセージを削除
+              setMessages(prev => {
+                const filtered = prev.filter(m => !m.isWaiting);
+                // 重複を避ける
+                const exists = filtered.some(m => m.id === newMessage.id);
+                if (exists) return filtered;
+                return [...filtered, newMessage];
+              });
+            } else {
+              setMessages(prev => {
+                // 重複を避ける
+                const exists = prev.some(m => m.id === newMessage.id);
+                if (exists) return prev;
+                return [...prev, newMessage];
+              });
+            }
+          }
+        }
+      });
+      
+      // 会話IDを更新
+      setConversationId(String(realConversationId));
+      
+      // タブごとのsessionStorageに保存
+      sessionStorage.setItem('current_conversation_id', String(realConversationId));
+      
+      // 90秒後に自動返信（企業側から返信がない場合）
+      const autoReplyTimer = setTimeout(() => {
+        const autoReplyMessage: Message = {
+          id: Date.now(),
+          text: `お問い合わせありがとうございます。
 以下の内容で承りました。
-
 【お客様情報】
 お名前: ${contactForm.name}
 会社名: ${contactForm.company}
 メールアドレス: ${contactForm.email}
 電話番号: ${contactForm.phone || 'なし'}
 ご相談内容: ${contactForm.message}
-
-担当者より2営業日以内にご連絡させていただきます。`,
-      sender: 'bot',
-      timestamp: new Date()
-    };
-    setMessages(prev => [...prev, formMessage]);
+2営業日以内に担当者よりご連絡させていただきます。`,
+          sender: 'company',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => {
+          // 待機中メッセージを削除して自動返信を追加
+          const filtered = prev.filter(m => !m.isWaiting);
+          return [...filtered, autoReplyMessage];
+        });
+        
+        // ActionCableで自動返信を送信（既に接続されている）
+        actionCableService.sendMessage({
+          content: autoReplyMessage.text,
+          role: 'company',
+          metadata: {
+            conversationId: realConversationId
+          }
+        });
+      }, 90000); // 90秒
+      
+      // タイマーIDを保存（企業から返信があったらキャンセルする用）
+      (window as any).autoReplyTimer = autoReplyTimer;
+      
+    } catch (error) {
+      console.error('Error creating conversation:', error);
+      // エラー時はローカルストレージに保存（フォールバック）
+      const chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const pendingChat = {
+        id: chatId,
+        companyName: contactForm.company,
+        contactName: contactForm.name,
+        email: contactForm.email,
+        phone: contactForm.phone,
+        message: contactForm.message,
+        category: selectedCategory || '',
+        timestamp: new Date().toLocaleString('ja-JP'),
+        responseType: null,
+        status: 'pending',
+        customerType: 'new'
+      };
+      
+      // ローカルストレージに保存
+      const existingChats = JSON.parse(localStorage.getItem('pendingChats') || '[]');
+      existingChats.push(pendingChat);
+      localStorage.setItem('pendingChats', JSON.stringify(existingChats));
+    }
     
     // フォームをリセット
     setContactForm({
@@ -459,7 +732,7 @@ const NewCustomerChat: React.FC = () => {
   };
 
   return (
-    <AutoResumeChat onConversationLoaded={handleConversationLoaded}>
+    // <AutoResumeChat onConversationLoaded={handleConversationLoaded}>
       <div style={{
       display: 'flex',
       flexDirection: 'column',
@@ -546,7 +819,14 @@ const NewCustomerChat: React.FC = () => {
                     📁 カテゴリー選択
                   </div>
                 )}
-                <div style={{ whiteSpace: 'pre-wrap' }}>{message.text}</div>
+                <div style={{ whiteSpace: 'pre-wrap' }}>
+                  {message.text}
+                  {message.isWaiting && (
+                    <span style={{ marginLeft: '0.5rem' }}>
+                      <span className="animate-pulse">●●●</span>
+                    </span>
+                  )}
+                </div>
                 <div style={{
                   fontSize: '0.75rem',
                   opacity: 0.7,
@@ -898,7 +1178,7 @@ const NewCustomerChat: React.FC = () => {
         }
       `}</style>
       </div>
-    </AutoResumeChat>
+    // </AutoResumeChat>
   );
 };
 

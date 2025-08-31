@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, AlertCircle } from 'lucide-react';
-import SessionManager from '../services/sessionManager';
+import sessionManager from '../services/sessionManager';
 
 interface Message {
   id: number;
@@ -34,9 +34,9 @@ const AutoResumeChat: React.FC<AutoResumeChatProps> = ({
     }
 
     // 有効なセッションがあるかチェック
-    if (!SessionManager.hasValidSession()) {
+    if (!sessionManager.hasValidSession()) {
       // 最後のアクティブな会話をチェック
-      const lastActive = SessionManager.getLastActiveConversation();
+      const lastActive = sessionManager.getLastActiveConversation();
       if (!lastActive) {
         setHasAttempted(true);
         return;
@@ -52,10 +52,10 @@ const AutoResumeChat: React.FC<AutoResumeChatProps> = ({
         return;
       }
 
-      SessionManager.setCurrentConversationId(lastActive.conversationId);
+      sessionManager.setCurrentConversationId(lastActive.conversationId);
     }
 
-    const conversationId = SessionManager.getCurrentConversationId();
+    const conversationId = sessionManager.getCurrentConversationId();
     if (!conversationId) {
       setHasAttempted(true);
       return;
@@ -65,7 +65,7 @@ const AutoResumeChat: React.FC<AutoResumeChatProps> = ({
     setError(null);
 
     try {
-      const sessionId = SessionManager.getSessionId();
+      const sessionId = sessionManager.getSessionId();
       const response = await fetch(
         `http://localhost:3000/api/v1/conversations/${conversationId}`,
         {
@@ -80,7 +80,7 @@ const AutoResumeChat: React.FC<AutoResumeChatProps> = ({
 
       if (response.status === 404) {
         // 会話が見つからない場合はセッションをクリア
-        SessionManager.clearCurrentConversationId();
+        sessionManager.clearCurrentConversationId();
         setHasAttempted(true);
         return;
       }
@@ -101,7 +101,7 @@ const AutoResumeChat: React.FC<AutoResumeChatProps> = ({
       }
 
       // 最終アクティブ情報を更新
-      SessionManager.setLastActiveConversation({
+      sessionManager.setLastActiveConversation({
         conversationId: conversation.id,
         timestamp: new Date().toISOString(),
         messageCount: conversation.messages?.length || 0

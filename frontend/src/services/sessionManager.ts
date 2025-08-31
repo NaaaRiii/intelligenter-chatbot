@@ -6,7 +6,8 @@ interface LastActiveConversation {
 
 class SessionManager {
   private static instance: SessionManager;
-  private sessionId: string | null = null;
+  private userId: string | null = null;
+  private tabSessionId: string | null = null;
 
   private constructor() {}
 
@@ -18,25 +19,57 @@ class SessionManager {
   }
 
   /**
-   * セッションIDを取得（なければ生成）
+   * ユーザーIDを取得（なければ生成）
+   * 全タブで共有、30日間保持
    */
-  getSessionId(): string {
+  getUserId(): string {
     // メモリにキャッシュがあればそれを返す
-    if (this.sessionId) {
-      return this.sessionId;
+    if (this.userId) {
+      return this.userId;
     }
 
     // Cookieから取得
-    const existingId = this.getCookie('session_id');
+    const existingId = this.getCookie('user_id');
     if (existingId && existingId.trim() !== '') {
-      this.sessionId = existingId;
+      this.userId = existingId;
       return existingId;
     }
 
     // 新規生成
-    this.sessionId = this.generateUUID();
-    this.setCookie('session_id', this.sessionId, 30); // 30日間有効
-    return this.sessionId;
+    this.userId = this.generateUUID();
+    this.setCookie('user_id', this.userId, 30); // 30日間有効
+    return this.userId;
+  }
+
+  /**
+   * タブセッションIDを取得（なければ生成）
+   * タブごとに独立、タブを閉じると削除
+   */
+  getTabSessionId(): string {
+    // メモリにキャッシュがあればそれを返す
+    if (this.tabSessionId) {
+      return this.tabSessionId;
+    }
+
+    // sessionStorageから取得
+    const existingId = sessionStorage.getItem('tab_session_id');
+    if (existingId && existingId.trim() !== '') {
+      this.tabSessionId = existingId;
+      return existingId;
+    }
+
+    // 新規生成
+    this.tabSessionId = this.generateUUID();
+    sessionStorage.setItem('tab_session_id', this.tabSessionId);
+    return this.tabSessionId;
+  }
+
+  /**
+   * セッションIDを取得（互換性のため残す）
+   * タブセッションIDを返す
+   */
+  getSessionId(): string {
+    return this.getTabSessionId();
   }
 
   /**

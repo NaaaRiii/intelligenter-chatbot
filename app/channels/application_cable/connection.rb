@@ -1,18 +1,18 @@
 module ApplicationCable
   class Connection < ActionCable::Connection::Base
-    identified_by :session_id
+    identified_by :uuid
 
     def connect
-      self.session_id = find_or_create_session_id
-      logger.add_tags 'ActionCable', session_id
+      self.uuid = find_or_create_session_id
+      logger.add_tags 'ActionCable', uuid
     end
 
     private
 
     def find_or_create_session_id
-      # 開発環境用の簡易セッションID
-      # 本番環境では適切な認証を実装する必要があります
-      cookies[:session_id] ||= SecureRandom.uuid
+      # 各接続ごとに新しいセッションIDを生成（タブごとに異なる）
+      # これにより各タブが独立した会話を持つ
+      SecureRandom.uuid
     end
   end
 end

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_08_30_135036) do
+ActiveRecord::Schema[7.1].define(version: 2025_08_31_034657) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -38,13 +38,15 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_30_135036) do
   end
 
   create_table "conversations", force: :cascade do |t|
-    t.bigint "user_id", null: false
+    t.bigint "user_id"
     t.string "session_id"
     t.datetime "ended_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
     t.jsonb "metadata"
     t.string "status", default: "active", null: false
+    t.string "guest_user_id"
+    t.index ["guest_user_id"], name: "index_conversations_on_guest_user_id"
     t.index ["session_id"], name: "index_conversations_on_session_id", unique: true
     t.index ["status"], name: "index_conversations_on_status"
     t.index ["user_id"], name: "index_conversations_on_user_id"

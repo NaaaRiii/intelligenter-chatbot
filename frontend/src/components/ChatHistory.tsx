@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { History, X, MessageCircle, Calendar, ChevronRight } from 'lucide-react';
+import SessionManager from '../services/sessionManager';
 
 interface Message {
   id: number;
@@ -27,16 +28,9 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onResumeConversation }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Cookieからセッション IDを取得
-  const getSessionId = () => {
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-      const [key, value] = cookie.trim().split('=');
-      if (key === 'session_id') {
-        return value;
-      }
-    }
-    return null;
+  // SessionManagerからユーザーIDを取得（全タブの会話を表示）
+  const getUserId = () => {
+    return SessionManager.getUserId();
   };
 
   // 会話履歴を取得
@@ -45,13 +39,15 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({ onResumeConversation }) => {
     setError(null);
     
     try {
-      const sessionId = getSessionId();
+      const userId = getUserId();
       const headers: HeadersInit = {
         'Content-Type': 'application/json',
       };
       
-      if (sessionId) {
-        headers['X-Session-Id'] = sessionId;
+      if (userId) {
+        headers['X-User-Id'] = userId;
+        // 互換性のため、セッションIDも送信
+        headers['X-Session-Id'] = SessionManager.getSessionId();
       }
 
       const response = await fetch('http://localhost:3000/api/v1/conversations', {

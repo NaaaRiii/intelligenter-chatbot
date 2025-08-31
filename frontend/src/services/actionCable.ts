@@ -20,13 +20,14 @@ class ActionCableService {
 
   connect() {
     if (!this.consumer) {
+      // Cookieを含めて接続（withCredentials相当）
       this.consumer = createConsumer('ws://localhost:3000/cable');
     }
     return this.consumer;
   }
 
   subscribeToConversation(
-    conversationId: string | null,
+    conversationId: string | number | null,
     handlers: ConversationHandlers
   ) {
     this.unsubscribe();

@@ -1,17 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import CustomerTypeSelector from './CustomerTypeSelector';
 import Chatbot from './Chatbot';
 import NewCustomerChat from './NewCustomerChat';
 
 const ChatWithSelector: React.FC = () => {
   const [customerType, setCustomerType] = useState<'new' | 'existing' | null>(null);
+  const [hasConversationId, setHasConversationId] = useState(false);
+
+  useEffect(() => {
+    // URLハッシュに会話IDがある場合は直接チャット画面を表示
+    const hashId = window.location.hash.replace('#', '');
+    if (hashId && /^\d+$/.test(hashId)) {
+      setHasConversationId(true);
+      setCustomerType('new'); // NewCustomerChatを使用（会話履歴表示機能があるため）
+    }
+  }, []);
 
   const handleCustomerTypeSelect = (type: 'new' | 'existing') => {
     setCustomerType(type);
   };
 
-  // 顧客タイプが選択されていない場合は選択画面を表示
-  if (!customerType) {
+  // URLに会話IDがない場合のみ、顧客タイプ選択画面を表示
+  if (!customerType && !hasConversationId) {
     return <CustomerTypeSelector onSelect={handleCustomerTypeSelect} />;
   }
 

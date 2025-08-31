@@ -337,8 +337,12 @@ const NewCustomerChat: React.FC = () => {
                 });
               } else {
                 setMessages(prev => {
-                  // 重複を避ける
-                  const exists = prev.some(m => m.id === newMessage.id);
+                  // 重複を避ける（IDまたは同じ内容・時刻のメッセージ）
+                  const exists = prev.some(m => 
+                    m.id === newMessage.id || 
+                    (m.text === newMessage.text && 
+                     Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 1000)
+                  );
                   if (exists) return prev;
                   return [...prev, newMessage];
                 });
@@ -458,42 +462,52 @@ const NewCustomerChat: React.FC = () => {
 
   const handleSendMessage = () => {
     if (!inputMessage.trim()) return;
+    if (!selectedCategory && !conversationId) return;
 
+    const messageCopy = inputMessage;
+    setInputMessage('');
+
+    // メッセージオブジェクトを作成
     const userMessage: Message = {
       id: Date.now(),
-      text: inputMessage,
+      text: messageCopy,
       sender: 'user',
       timestamp: new Date()
     };
 
-    setMessages(prev => [...prev, userMessage]);
-    const messageCopy = inputMessage;
-    setInputMessage('');
-    setIsLoading(true);
-
-    // ActionCable経由でメッセージを送信
-    sendMessageToCable(messageCopy, 'user');
-
-    // AI応答を生成（ローカルでも生成）
-    setTimeout(() => {
-      // 知識ベースを使用してAI応答を生成
-      const response = selectedCategory 
-        ? generateAIResponse(messageCopy, selectedCategory, messageCount)
-        : { message: 'ご質問ありがとうございます。詳しくお答えさせていただきます。', showForm: false };
-      
-      const botMessage: Message = {
-        id: Date.now() + 1,
-        text: response.message,
-        sender: 'bot',
-        timestamp: new Date()
-      };
-      setMessages(prev => [...prev, botMessage]);
+    // ActionCable経由でメッセージを送信（接続されている場合）
+    if (isConnected && conversationId) {
+      // 一時的にローカルに追加（楽観的更新）
+      setMessages(prev => [...prev, userMessage]);
+      // ActionCable経由で送信
+      sendMessageToCable(messageCopy, 'user');
       setIsLoading(false);
-      setMessageCount(prev => prev + 1);
+    }
+    // カテゴリー選択後の初期段階（会話IDがまだない）
+    else if (selectedCategory && !conversationId) {
+      setMessages(prev => [...prev, userMessage]);
       
-      // アシスタントメッセージも送信
-      sendMessageToCable(response.message, 'assistant');
-    }, 1500);
+      setIsLoading(true);
+      // AI応答を生成（ローカル）
+      setTimeout(() => {
+        const response = generateAIResponse(messageCopy, selectedCategory, messageCount);
+        
+        const botMessage: Message = {
+          id: Date.now() + 1,
+          text: response.message,
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        setMessages(prev => [...prev, botMessage]);
+        setIsLoading(false);
+        setMessageCount(prev => prev + 1);
+        
+        // アシスタントメッセージも送信
+        if (isConnected) {
+          sendMessageToCable(response.message, 'assistant');
+        }
+      }, 1500);
+    }
   };
 
   const handleContactSubmit = async (e: React.FormEvent) => {
@@ -571,7 +585,8 @@ const NewCustomerChat: React.FC = () => {
                 company: contactForm.company,
                 contactName: contactForm.name,
                 email: contactForm.email,
-                phone: contactForm.phone
+                phone: contactForm.phone,
+                customerType: 'new'  // 新規顧客として明示的に設定
               }
             }
           })
@@ -588,71 +603,95 @@ const NewCustomerChat: React.FC = () => {
         realConversationId = conversation.id; // データベースの実際のID
       }
       
-      // 新しい会話IDでActionCableに再接続
-      actionCableService.unsubscribe();
-      actionCableService.subscribeToConversation(String(realConversationId), {
-        onConnected: () => {
-          console.log(`Connected to conversation ${realConversationId}`);
-          setIsConnected(true);
-          
-          // フォームデータを含むメッセージを送信
-          const formMessage = `会社名: ${contactForm.company}
+      // 既に接続されている場合は、既存の接続を使用してメッセージを送信
+      if (isConnected && conversationId === String(realConversationId)) {
+        // 既存の接続でメッセージを送信
+        const formMessage = `会社名: ${contactForm.company}
 お名前: ${contactForm.name}
 メールアドレス: ${contactForm.email}
 電話番号: ${contactForm.phone || ''}
 お問い合わせカテゴリ: ${categoryNames[selectedCategory] || 'その他'}
 お問い合わせ内容: ${contactForm.message}`;
-          
-          actionCableService.sendMessage({
-            content: formMessage,
-            role: 'user',
-            metadata: {
-              category: selectedCategory,
-              conversationId: realConversationId
-            }
-          });
-        },
-        onDisconnected: () => {
-          console.log('WebSocket disconnected');
-          setIsConnected(false);
-        },
-        onReceived: (data) => {
-          if (data.message) {
-            const newMessage: Message = {
-              id: data.message.id || Date.now(),
-              text: data.message.content,
-              sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
-              timestamp: new Date(data.message.created_at || Date.now()),
-              role: data.message.role
-            };
+        
+        actionCableService.sendMessage({
+          content: formMessage,
+          role: 'user',
+          metadata: {
+            category: selectedCategory,
+            conversationId: realConversationId
+          }
+        });
+      } else {
+        // 新しい会話IDでActionCableに再接続
+        actionCableService.unsubscribe();
+        actionCableService.subscribeToConversation(String(realConversationId), {
+          onConnected: () => {
+            console.log(`Connected to conversation ${realConversationId}`);
+            setIsConnected(true);
             
-            // 企業からの返信を受信した場合
-            if (data.message.role === 'company') {
-              // 自動返信タイマーをキャンセル
-              if ((window as any).autoReplyTimer) {
-                clearTimeout((window as any).autoReplyTimer);
-                (window as any).autoReplyTimer = null;
+            // フォームデータを含むメッセージを送信
+            const formMessage = `会社名: ${contactForm.company}
+お名前: ${contactForm.name}
+メールアドレス: ${contactForm.email}
+電話番号: ${contactForm.phone || ''}
+お問い合わせカテゴリ: ${categoryNames[selectedCategory] || 'その他'}
+お問い合わせ内容: ${contactForm.message}`;
+            
+            actionCableService.sendMessage({
+              content: formMessage,
+              role: 'user',
+              metadata: {
+                category: selectedCategory,
+                conversationId: realConversationId
               }
+            });
+          },
+          onDisconnected: () => {
+            console.log('WebSocket disconnected');
+            setIsConnected(false);
+          },
+          onReceived: (data) => {
+            if (data.message) {
+              const newMessage: Message = {
+                id: data.message.id || Date.now(),
+                text: data.message.content,
+                sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
+                timestamp: new Date(data.message.created_at || Date.now()),
+                role: data.message.role
+              };
               
-              // 待機中メッセージを削除
-              setMessages(prev => {
-                const filtered = prev.filter(m => !m.isWaiting);
-                // 重複を避ける
-                const exists = filtered.some(m => m.id === newMessage.id);
-                if (exists) return filtered;
-                return [...filtered, newMessage];
-              });
-            } else {
-              setMessages(prev => {
-                // 重複を避ける
-                const exists = prev.some(m => m.id === newMessage.id);
-                if (exists) return prev;
-                return [...prev, newMessage];
-              });
+              // 企業からの返信を受信した場合
+              if (data.message.role === 'company') {
+                // 自動返信タイマーをキャンセル
+                if ((window as any).autoReplyTimer) {
+                  clearTimeout((window as any).autoReplyTimer);
+                  (window as any).autoReplyTimer = null;
+                }
+                
+                // 待機中メッセージを削除
+                setMessages(prev => {
+                  const filtered = prev.filter(m => !m.isWaiting);
+                  // 重複を避ける
+                  const exists = filtered.some(m => m.id === newMessage.id);
+                  if (exists) return filtered;
+                  return [...filtered, newMessage];
+                });
+              } else {
+                setMessages(prev => {
+                  // 重複を避ける（IDまたは同じ内容・時刻のメッセージ）
+                  const exists = prev.some(m => 
+                    m.id === newMessage.id || 
+                    (m.text === newMessage.text && 
+                     Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 1000)
+                  );
+                  if (exists) return prev;
+                  return [...prev, newMessage];
+                });
+              }
             }
           }
-        }
-      });
+        });
+      }
       
       // 会話IDを更新
       setConversationId(String(realConversationId));
@@ -1123,8 +1162,8 @@ const NewCustomerChat: React.FC = () => {
             value={inputMessage}
             onChange={(e) => setInputMessage(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-            placeholder={selectedCategory ? "メッセージを入力..." : "まずはカテゴリーをお選びください"}
-            disabled={!selectedCategory}
+            placeholder={conversationId ? "メッセージを入力..." : (selectedCategory ? "メッセージを入力..." : "まずはカテゴリーをお選びください")}
+            disabled={!selectedCategory && !conversationId}
             style={{
               flex: 1,
               padding: '0.75rem',
@@ -1132,19 +1171,19 @@ const NewCustomerChat: React.FC = () => {
               border: '1px solid #e5e7eb',
               fontSize: '0.875rem',
               outline: 'none',
-              opacity: selectedCategory ? 1 : 0.5
+              opacity: (selectedCategory || conversationId) ? 1 : 0.5
             }}
           />
           <button
             onClick={handleSendMessage}
-            disabled={!inputMessage.trim() || !selectedCategory}
+            disabled={!inputMessage.trim() || (!selectedCategory && !conversationId)}
             style={{
               padding: '0.75rem 1.5rem',
-              backgroundColor: inputMessage.trim() && selectedCategory ? '#2563eb' : '#e5e7eb',
-              color: inputMessage.trim() && selectedCategory ? 'white' : '#9ca3af',
+              backgroundColor: inputMessage.trim() && (selectedCategory || conversationId) ? '#2563eb' : '#e5e7eb',
+              color: inputMessage.trim() && (selectedCategory || conversationId) ? 'white' : '#9ca3af',
               borderRadius: '0.5rem',
               border: 'none',
-              cursor: inputMessage.trim() && selectedCategory ? 'pointer' : 'not-allowed',
+              cursor: inputMessage.trim() && (selectedCategory || conversationId) ? 'pointer' : 'not-allowed',
               display: 'flex',
               alignItems: 'center',
               gap: '0.5rem',

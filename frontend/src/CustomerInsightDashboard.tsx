@@ -265,8 +265,8 @@ const CustomerInsightDashboard: React.FC = () => {
                 }
               }
               
-              // 新規/既存の判定：最初のメッセージが今日作成されたかどうかで判定
-              const isNewCustomer = conv.messages.length <= 2; // メッセージが2件以下なら新規
+              // 新規/既存の判定：metadataのcustomerTypeまたはguest_user_idの有無で判定
+              const isNewCustomer = conv.metadata?.customerType === 'new' || !conv.guest_user_id;
               
               return {
                 id: conv.id, // 数値のID
@@ -277,13 +277,30 @@ const CustomerInsightDashboard: React.FC = () => {
                 message: messageContent,
                 category: formData.category,
                 timestamp: new Date(conv.updated_at).toLocaleString('ja-JP'),
-                responseType: null,
-                status: conv.status === 'active' ? 'pending' : 'completed',
+                responseType: conv.metadata?.responseType || null,
+                status: conv.metadata?.responseType ? 'responding' : (conv.status === 'active' ? 'pending' : 'completed'),
                 customerType: isNewCustomer ? 'new' : 'existing'
               };
             });
           
-          setPendingChats(conversationsWithMessages);
+          // 既存のローカル状態とマージ（responseTypeを保持）
+          setPendingChats(prevChats => {
+            return conversationsWithMessages.map(newChat => {
+              // 既存のチャットを探す
+              const existingChat = prevChats.find(c => c.id === newChat.id);
+              
+              // responseTypeが既に設定されている場合は保持
+              if (existingChat && existingChat.responseType) {
+                return {
+                  ...newChat,
+                  responseType: existingChat.responseType,
+                  status: existingChat.status
+                };
+              }
+              
+              return newChat;
+            });
+          });
         } else {
           console.error('Failed to fetch conversations:', response.status);
           // エラー時はモックデータを使用
@@ -361,7 +378,33 @@ const CustomerInsightDashboard: React.FC = () => {
     return <Frown className="w-4 h-4 text-red-500" />;
   };
 
-  const handleChatResponse = (chatId: string | number, responseType: 'immediate' | 'later') => {
+  const handleChatResponse = async (chatId: string | number, responseType: 'immediate' | 'later') => {
+    // データベースのmetadataを更新
+    try {
+      const updateResponse = await fetch(`http://localhost:3000/api/v1/conversations/${chatId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-User-Id': sessionManager.getUserId()
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          conversation: {
+            metadata: {
+              responseType: responseType
+            }
+          }
+        })
+      });
+      
+      if (!updateResponse.ok) {
+        const result = await updateResponse.json();
+        console.error('Failed to update conversation metadata:', result);
+      }
+    } catch (error) {
+      console.error('Error updating conversation:', error);
+    }
+    
     const updatedChats = pendingChats.map(chat => 
       chat.id === chatId 
         ? { ...chat, responseType, status: responseType === 'immediate' ? 'responding' as const : 'pending' as const }
@@ -771,25 +814,28 @@ const CustomerInsightDashboard: React.FC = () => {
                     </div>
 
                     <div className="flex gap-3">
+                      {/* 未対応の場合のみ「対応開始」ボタンを表示 */}
                       {chat.status === 'pending' && !chat.responseType && (
-                        <>
-                          <button
-                            onClick={() => {
-                              setSelectedChat(chat);
-                              setShowResponseModal(true);
-                            }}
-                            className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
-                          >
-                            対応開始
-                          </button>
-                        </>
+                        <button
+                          onClick={() => {
+                            setSelectedChat(chat);
+                            setShowResponseModal(true);
+                          }}
+                          className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors"
+                        >
+                          対応開始
+                        </button>
                       )}
-                      <button
-                        onClick={() => handleChatClick(chat)}
-                        className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors"
-                      >
-                        チャットを確認
-                      </button>
+                      
+                      {/* 対応済み（即時対応 or 2営業日以内）の場合のみ「チャットを確認」ボタンを表示 */}
+                      {(chat.responseType === 'immediate' || chat.responseType === 'later' || chat.status === 'responding') && (
+                        <button
+                          onClick={() => handleChatClick(chat)}
+                          className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-200 transition-colors"
+                        >
+                          チャットを確認
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

@@ -1,9 +1,9 @@
 module Api
   module V1
     class ConversationsController < BaseController
-      skip_before_action :authenticate_api_user!, only: [:index, :show, :create, :messages, :resume]
+      skip_before_action :authenticate_api_user!, only: [:index, :show, :create, :update, :messages, :resume]
       before_action :set_or_create_session_id
-      before_action :set_conversation, only: [:show, :messages, :resume]
+      before_action :set_conversation, only: [:show, :update, :messages, :resume]
 
       # GET /api/v1/conversations
       def index
@@ -84,6 +84,38 @@ module Api
         }
       end
 
+      # PATCH/PUT /api/v1/conversations/:id
+      def update
+        # 既存のmetadataとマージ
+        if params[:conversation][:metadata].present?
+          existing_metadata = @conversation.metadata || {}
+          # パラメータを明示的にハッシュに変換
+          new_metadata_params = params[:conversation][:metadata].to_unsafe_h
+          new_metadata = existing_metadata.merge(new_metadata_params)
+          Rails.logger.info "Updating conversation #{@conversation.id} metadata: #{existing_metadata} -> #{new_metadata}"
+          @conversation.metadata = new_metadata
+        end
+        
+        # その他のパラメータも更新（metadataを除く）
+        permitted_params = conversation_params
+        if permitted_params.except(:metadata).present?
+          @conversation.assign_attributes(permitted_params.except(:metadata))
+        end
+        
+        if @conversation.save
+          Rails.logger.info "Conversation #{@conversation.id} saved with metadata: #{@conversation.metadata}"
+          render json: {
+            conversation: @conversation.as_json(
+              include: {
+                messages: { only: [:id, :content, :role, :created_at] }
+              }
+            )
+          }
+        else
+          render json: { errors: @conversation.errors.full_messages }, status: :unprocessable_entity
+        end
+      end
+
       # POST /api/v1/conversations/:id/resume
       def resume
         @conversation.update!(status: 'active', updated_at: Time.current)
@@ -126,7 +158,13 @@ module Api
       end
 
       def conversation_params
-        params.require(:conversation).permit(:session_id, :status, :guest_user_id, metadata: {})
+        # metadataのすべてのキーを許可
+        if params[:conversation][:metadata].present?
+          metadata_keys = params[:conversation][:metadata].keys
+          params.require(:conversation).permit(:session_id, :status, :guest_user_id, metadata: metadata_keys)
+        else
+          params.require(:conversation).permit(:session_id, :status, :guest_user_id)
+        end
       end
     end
   end

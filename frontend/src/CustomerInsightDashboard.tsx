@@ -52,7 +52,7 @@ const CustomerInsightDashboard: React.FC = () => {
 
   // カテゴリー名のマッピング（英語キーと日本語表示名の両方に対応）
   const categoryDisplayNames: { [key: string]: string } = {
-    // 英語キー
+    // 新規顧客用（英語キー）
     'service': '🏢 サービス概要',
     'tech': '💻 技術・システム',
     'marketing': '📈 マーケティング',
@@ -60,6 +60,16 @@ const CustomerInsightDashboard: React.FC = () => {
     'cost': '💰 費用・契約',
     'case': '🏆 実績・事例',
     'consultation': '💬 初回相談',
+    // 既存顧客用
+    'cdp': '📊 CDP運用',
+    'ma_crm': '📧 MA/CRM最適化',
+    'advertising': '📢 Web広告運用',
+    'analytics': '📈 データ分析',
+    'development': '⚙️ システム開発',
+    'ecommerce': '🛒 ECサイト運営',
+    'ai_ml': '🤖 AI・機械学習',
+    'organization': '👥 組織・体制',
+    'competition': '🎯 競合対策',
     // 日本語キー（後方互換性）
     'サービス概要・能力範囲': '🏢 サービス概要',
     '技術・システム関連': '💻 技術・システム',
@@ -808,8 +818,8 @@ const CustomerInsightDashboard: React.FC = () => {
                             </span>
                           )}
                           {chat.customerType === 'existing' && chat.category && (
-                            <span className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded">
-                              {chat.category}
+                            <span className="bg-gradient-to-r from-green-500 to-emerald-500 text-white text-xs px-3 py-1 rounded-full font-medium shadow-sm">
+                              {categoryDisplayNames[chat.category] || chat.category}
                             </span>
                           )}
                           {getStatusBadge(chat.status, chat.responseType)}

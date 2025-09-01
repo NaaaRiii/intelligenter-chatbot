@@ -1,13 +1,23 @@
 import React, { useState, useEffect } from 'react';
 import CustomerTypeSelector from './CustomerTypeSelector';
-import Chatbot from './Chatbot';
 import NewCustomerChat from './NewCustomerChat';
+import ExistingCustomerChat from './ExistingCustomerChat';
 
 const ChatWithSelector: React.FC = () => {
-  const [customerType, setCustomerType] = useState<'new' | 'existing' | null>(null);
+  const [customerType, setCustomerType] = useState<'new' | 'existing' | 'existing-chat' | null>(null);
   const [hasConversationId, setHasConversationId] = useState(false);
 
   useEffect(() => {
+    // URLパラメータをチェック
+    const urlParams = new URLSearchParams(window.location.search);
+    const customerTypeParam = urlParams.get('customerType');
+    
+    // customerType=existingパラメータがある場合は既存顧客として直接チャット画面を表示
+    if (customerTypeParam === 'existing') {
+      setCustomerType('existing');
+      return;
+    }
+    
     // URLハッシュに会話IDがある場合は直接チャット画面を表示
     const hashId = window.location.hash.replace('#', '');
     if (hashId && /^\d+$/.test(hashId)) {
@@ -35,37 +45,8 @@ const ChatWithSelector: React.FC = () => {
     return <NewCustomerChat />;
   }
 
-  // 既存顧客の場合は通常のChatbot画面を表示
-  return (
-    <div style={{ position: 'relative' }}>
-      {/* 顧客タイプ表示バー */}
-      <div style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        backgroundColor: '#dcfce7',
-        padding: '0.5rem',
-        textAlign: 'center',
-        borderBottom: '1px solid',
-        borderColor: '#86efac',
-        zIndex: 100
-      }}>
-        <span style={{
-          fontSize: '0.875rem',
-          fontWeight: '500',
-          color: '#166534'
-        }}>
-          ✅ 既存のお客様
-        </span>
-      </div>
-      
-      {/* チャット画面（上部にマージンを追加） */}
-      <div style={{ paddingTop: '2.5rem' }}>
-        <Chatbot />
-      </div>
-    </div>
-  );
+  // 既存顧客の場合はExistingCustomerChatを表示
+  return <ExistingCustomerChat />;
 };
 
 export default ChatWithSelector;

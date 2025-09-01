@@ -49,6 +49,13 @@ Rails.application.routes.draw do
           post :resume
         end
       end
+      
+      # 問い合わせ分析API
+      namespace :inquiry_analysis do
+        post :analyze
+        post :batch_analyze
+      end
+      
       resources :users, only: %i[show update]
     end
   end

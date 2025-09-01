@@ -124,6 +124,9 @@ class ChatChannel < ApplicationCable::Channel
 
   def handle_message_save(message)
     if message.save
+      # 構造化データを更新
+      @conversation.update_structured_metadata(message.content) if message.role == 'user'
+      
       broadcast_message(message)
       trigger_bot_response(message) if should_trigger_bot_response?(message)
     else

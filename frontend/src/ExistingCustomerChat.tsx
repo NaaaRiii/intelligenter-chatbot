@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Send, MessageCircle, User, Mail, Building, Phone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CategorySelector from './ExistingCategorySelector';
-import { generateAIResponse } from './companyKnowledge';
+import { generateExistingCustomerResponse } from './existingCustomerKnowledge';
 import actionCableService from './services/actionCable';
 import ChatHistory from './components/ChatHistory';
 // import AutoResumeChat from './components/AutoResumeChat';
@@ -28,9 +28,9 @@ const ExistingCustomerChat: React.FC = () => {
   const [showContactForm, setShowContactForm] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
   const [contactForm, setContactForm] = useState({
-    name: '',
-    company: '',
-    email: '',
+    name: sessionStorage.getItem('customer_name') || '',
+    company: sessionStorage.getItem('customer_company') || '',
+    email: sessionStorage.getItem('customer_email') || '',
     phone: '',
     message: ''
   });
@@ -474,28 +474,28 @@ const ExistingCustomerChat: React.FC = () => {
         setMessages(prev => [...prev, detailMessage]);
         setIsLoading(false);
         
-        // 質問（さらに1秒後）
+        // 質問とフォーム表示（さらに1秒後）
         setIsLoading(true);
         setTimeout(() => {
           const questionMessage: Message = {
             id: messageId++,
-            text: responses[2],
+            text: '詳しい情報を教えていただくために、以下のフォームにご記入ください。',
             sender: 'bot',
             timestamp: new Date()
           };
           setMessages(prev => [...prev, questionMessage]);
           setIsLoading(false);
           
-          // 既存顧客の場合はフォームを表示しない（チャット継続）
-          // setTimeout(() => {
-          //   setShowContactForm(true);
-          // }, 500);
+          // 既存顧客用のフォームを表示
+          setTimeout(() => {
+            setShowContactForm(true);
+          }, 500);
         }, 1000);
       }, 1500);
     }, 1000);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
     if (!selectedCategory && !conversationId) return;
 
@@ -522,14 +522,89 @@ const ExistingCustomerChat: React.FC = () => {
     else if (selectedCategory && !conversationId) {
       setMessages(prev => [...prev, userMessage]);
       
+      // 初回メッセージの場合、会話を作成
+      try {
+        const userId = sessionManager.getUserId();
+        const tabSessionId = sessionManager.getTabSessionId();
+        
+        const response = await fetch('http://localhost:3000/api/v1/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId,
+            'X-Session-Id': tabSessionId
+          },
+          body: JSON.stringify({
+            initial_message: messageCopy,
+            category: selectedCategory,
+            customer_type: 'existing',
+            metadata: {
+              category_name: categoryNames[selectedCategory]
+            }
+          }),
+          credentials: 'include'
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          const newConversationId = String(data.conversation.id);
+          setConversationId(newConversationId);
+          sessionStorage.setItem('current_conversation_id', newConversationId);
+          
+          // ActionCableに接続
+          actionCableService.subscribeToConversation(newConversationId, {
+            onConnected: () => {
+              console.log('WebSocket connected for existing customer');
+              setIsConnected(true);
+              // 初回メッセージを送信
+              actionCableService.sendMessage({
+                content: messageCopy,
+                role: 'user',
+                metadata: {
+                  category: selectedCategory,
+                  conversationId: newConversationId,
+                  customer_type: 'existing'
+                }
+              });
+            },
+            onDisconnected: () => {
+              console.log('WebSocket disconnected');
+              setIsConnected(false);
+            },
+            onReceived: (data) => {
+              if (data.message) {
+                const newMessage: Message = {
+                  id: data.message.id || Date.now(),
+                  text: data.message.content,
+                  sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
+                  timestamp: new Date(data.message.created_at || Date.now()),
+                  role: data.message.role
+                };
+                setMessages(prev => {
+                  const exists = prev.some(m => 
+                    m.id === newMessage.id || 
+                    (m.text === newMessage.text && 
+                     Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 1000)
+                  );
+                  if (exists) return prev;
+                  return [...prev, newMessage];
+                });
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error('Error creating conversation:', error);
+      }
+      
       setIsLoading(true);
       // AI応答を生成（ローカル）
       setTimeout(() => {
-        const response = generateAIResponse(messageCopy, selectedCategory, messageCount);
+        const response = generateExistingCustomerResponse(selectedCategory, messageCopy);
         
         const botMessage: Message = {
           id: Date.now() + 1,
-          text: response.message,
+          text: response,
           sender: 'bot',
           timestamp: new Date()
         };
@@ -539,7 +614,7 @@ const ExistingCustomerChat: React.FC = () => {
         
         // アシスタントメッセージも送信
         if (isConnected) {
-          sendMessageToCable(response.message, 'assistant');
+          sendMessageToCable(response, 'assistant');
         }
       }, 1500);
     }
@@ -568,7 +643,7 @@ const ExistingCustomerChat: React.FC = () => {
       errors.email = '正しいメールアドレスを入力してください';
     }
     if (!contactForm.message.trim()) {
-      errors.message = 'ご相談内容を入力してください';
+      errors.message = 'お問い合わせ内容を入力してください';
     }
     
     // エラーがある場合は処理を中断
@@ -576,6 +651,11 @@ const ExistingCustomerChat: React.FC = () => {
       setFormErrors(errors);
       return;
     }
+    
+    // 顧客情報をsessionStorageに保存
+    sessionStorage.setItem('customer_name', contactForm.name);
+    sessionStorage.setItem('customer_company', contactForm.company);
+    sessionStorage.setItem('customer_email', contactForm.email);
     
     // エラーをクリア
     setFormErrors({ name: '', company: '', email: '', message: '' });
@@ -621,7 +701,7 @@ const ExistingCustomerChat: React.FC = () => {
                 contactName: contactForm.name,
                 email: contactForm.email,
                 phone: contactForm.phone,
-                customerType: 'new'  // 新規顧客として明示的に設定
+                customerType: 'existing'  // 既存顧客として設定
               }
             }
           })
@@ -745,7 +825,7 @@ const ExistingCustomerChat: React.FC = () => {
 会社名: ${contactForm.company}
 メールアドレス: ${contactForm.email}
 電話番号: ${contactForm.phone || 'なし'}
-ご相談内容: ${contactForm.message}
+お問い合わせ内容: ${contactForm.message}
 2営業日以内に担当者よりご連絡させていただきます。`,
           sender: 'company',
           timestamp: new Date()
@@ -963,7 +1043,7 @@ const ExistingCustomerChat: React.FC = () => {
                 marginBottom: '0.5rem',
                 color: '#1f2937'
               }}>
-                無料診断のお申し込み
+                サポートのお問い合わせ
               </h3>
               <p style={{
                 fontSize: '0.75rem',
@@ -1126,7 +1206,7 @@ const ExistingCustomerChat: React.FC = () => {
                     marginBottom: '0.25rem',
                     display: 'block'
                   }}>
-                    ご相談内容 <span style={{ color: '#ef4444' }}>*</span>
+                    お問い合わせ内容 <span style={{ color: '#ef4444' }}>*</span>
                   </label>
                   <textarea
                     required
@@ -1141,7 +1221,7 @@ const ExistingCustomerChat: React.FC = () => {
                       minHeight: '80px',
                       resize: 'vertical'
                     }}
-                    placeholder="具体的なご相談内容をお聞かせください"
+                    placeholder="サポートが必要な内容を具体的にお聞かせください"
                   />
                   {formErrors.message && (
                     <span style={{
@@ -1160,7 +1240,7 @@ const ExistingCustomerChat: React.FC = () => {
                   style={{
                     width: '100%',
                     padding: '0.75rem',
-                    backgroundColor: '#2563eb',
+                    backgroundColor: '#47d159',
                     color: 'white',
                     border: 'none',
                     borderRadius: '0.375rem',
@@ -1169,10 +1249,10 @@ const ExistingCustomerChat: React.FC = () => {
                     cursor: 'pointer',
                     transition: 'background-color 0.2s'
                   }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#1d4ed8'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#2563eb'}
+                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3cb84a'}
+                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#47d159'}
                 >
-                  無料診断を申し込む
+                  問い合わせを送信
                 </button>
               </form>
             </div>

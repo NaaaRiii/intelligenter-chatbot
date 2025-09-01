@@ -57,8 +57,10 @@ module Api
         @conversation.save!
         
         # マーケティングカテゴリーの新規顧客の場合、Slack通知を送信
+        # customerTypeとcustomer_typeの両方をチェック
         if @conversation.metadata&.dig('category') == 'marketing' && 
-           @conversation.metadata&.dig('customerType') == 'new'
+           (@conversation.metadata&.dig('customerType') == 'new' || 
+            @conversation.metadata&.dig('customer_type') == 'new')
           send_slack_notification_for_marketing
         end
         
@@ -102,8 +104,9 @@ module Api
           @conversation.metadata = new_metadata
           
           # マーケティングカテゴリーが選択された場合にSlack通知を送信
+          # customerTypeとcustomer_typeの両方をチェック
           if new_metadata['category'] == 'marketing' && 
-             new_metadata['customer_type'] == 'new' &&
+             (new_metadata['customerType'] == 'new' || new_metadata['customer_type'] == 'new') &&
              existing_metadata['category'] != 'marketing'
             send_slack_notification_for_marketing
           end

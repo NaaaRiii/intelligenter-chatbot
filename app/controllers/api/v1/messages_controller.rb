@@ -46,6 +46,9 @@ module Api
 
       def handle_successful_message_creation
         if @message.from_user?
+          # 構造化データを更新
+          @conversation.update_structured_metadata(@message.content)
+          
           # テスト環境でも常にジョブをエンキュー（specはhave_enqueued_jobを期待）
           ProcessAiResponseJob.perform_later(@message.id)
         end

@@ -19,7 +19,7 @@ class ClaudeApiService
   def analyze_conversation(conversation_history, user_query = nil)
     prompt = build_analysis_prompt(conversation_history, user_query)
 
-    response = @client.messages(
+    response = call_anthropic_messages(
       model: 'claude-3-haiku-20240307', # 高速・低コストなモデルを使用
       max_tokens: 1000,
       temperature: 0.3,
@@ -37,19 +37,30 @@ class ClaudeApiService
 
   # チャットボットの応答を生成
   def generate_response(conversation_history, user_message)
+    Rails.logger.info "[ClaudeAPI] generate_response called with:"
+    Rails.logger.info "  - conversation_history: #{conversation_history.inspect}"
+    Rails.logger.info "  - user_message: #{user_message}"
+    
     messages = build_conversation_messages(conversation_history, user_message)
+    Rails.logger.info "[ClaudeAPI] Built messages: #{messages.inspect}"
 
-    response = @client.messages(
+    response = call_anthropic_messages(
       model: 'claude-3-haiku-20240307',
       max_tokens: 500,
       temperature: 0.7,
       system: enhanced_chatbot_system_prompt,
       messages: messages
     )
-
-    extract_text_content(response)
+    
+    Rails.logger.info "[ClaudeAPI] Raw response: #{response.inspect}"
+    
+    result = extract_text_content(response)
+    Rails.logger.info "[ClaudeAPI] Extracted text: #{result}"
+    
+    result
   rescue StandardError => e
-    Rails.logger.error "Claude API Error: #{e.message}"
+    Rails.logger.error "[ClaudeAPI] Error: #{e.message}"
+    Rails.logger.error "[ClaudeAPI] Backtrace: #{e.backtrace.first(3).join("\n")}"
     fallback_response
   end
 
@@ -58,7 +69,7 @@ class ClaudeApiService
     messages = build_conversation_messages(conversation_history, user_message)
     system_prompt = build_category_specific_prompt(category)
 
-    response = @client.messages(
+    response = call_anthropic_messages(
       model: 'claude-3-haiku-20240307',
       max_tokens: 800,
       temperature: 0.7,
@@ -80,7 +91,7 @@ class ClaudeApiService
     # コンテキストを含むメッセージを構築
     messages = build_messages_with_context(conversation_history, user_message, enriched_context)
 
-    response = @client.messages(
+    response = call_anthropic_messages(
       model: 'claude-3-haiku-20240307',
       max_tokens: 800, # コンテキストがあるため増量
       temperature: 0.7,
@@ -114,6 +125,41 @@ class ClaudeApiService
 
   def build_analysis_prompt(conversation_history, user_query)
     enhanced_build_analysis_prompt(conversation_history, user_query)
+  end
+
+  # 応答テキストの簡易整形（重複行を除去、空行の連続を抑制）
+  # LLMが同趣旨の文を繰り返すケースの可読性を改善する
+  def compact_text(text)
+    return '' if text.nil?
+
+    require 'set'
+    seen = Set.new
+    output_lines = []
+    previous_blank = false
+
+    text.to_s.each_line do |line|
+      raw = line.rstrip
+      trimmed = raw.strip
+      is_blank = trimmed.empty?
+
+      # 連続する空行は1つに抑制
+      if is_blank
+        unless previous_blank
+          output_lines << ''
+        end
+        previous_blank = true
+        next
+      end
+
+      key = trimmed.gsub(/\s+/, ' ')
+      unless seen.include?(key)
+        output_lines << raw
+        seen.add(key)
+      end
+      previous_blank = false
+    end
+
+    output_lines.join("\n").strip
   end
 
   private
@@ -473,12 +519,86 @@ class ClaudeApiService
   end
 
   def extract_text_content(response)
-    if response.is_a?(Hash) && response['content']
-      Array(response['content']).map do |content_item|
-        content_item['text'] if content_item['type'] == 'text'
+    return '' if response.nil?
+
+    content = if response.is_a?(Hash)
+                response[:content] || response['content']
+
+              elsif response.respond_to?(:content)
+                response.content
+              elsif response.respond_to?(:[]) && (response[:content] || response['content'])
+                response[:content] || response['content']
+              else
+                nil
+              end
+
+    if content
+      Array(content).map do |item|
+        if item.is_a?(Hash)
+          item_text = item[:text] || item['text']
+          item_type = item[:type] || item['type']
+          item_text if item_type == 'text' && item_text
+        elsif item.respond_to?(:text) || item.respond_to?(:type)
+          item_type = item.respond_to?(:type) ? item.type : (item[:type] || item['type'])
+          item_text = item.respond_to?(:text) ? item.text : (item[:text] || item['text'])
+          item_text if item_type.to_s == 'text' && item_text
+        elsif item.is_a?(String)
+          item
+        end
       end.compact.join("\n")
     else
       response.to_s
+    end
+  end
+
+  # Anthropic API呼び出しの互換レイヤー
+  def call_anthropic_messages(params)
+    # 1) 新しめのgem形態: client.messages.create(...)
+    begin
+      messages_client = @client.messages
+      if messages_client.respond_to?(:create)
+        return messages_client.create(params)
+      end
+    rescue NoMethodError
+      # 下でHTTPフォールバック
+    end
+
+    # 2) 旧来/ラッパー形態: client.messages(...)
+    begin
+      maybe_response = @client.messages(**params)
+      # 実際のレスポンス（Hash）かを判定
+      if maybe_response.is_a?(Hash) && (maybe_response[:content] || maybe_response['content'])
+        return maybe_response
+      end
+    rescue StandardError
+      # 下でHTTPフォールバック
+    end
+
+    # 3) HTTPフォールバック（Faraday）
+    http_messages_create(params)
+  end
+
+  def http_messages_create(params)
+    api_key = Rails.application.credentials.dig(:anthropic, :api_key) || ENV['ANTHROPIC_API_KEY']
+    raise ApiError, 'Anthropic APIキーが設定されていません' if api_key.blank?
+
+    conn = Faraday.new(url: 'https://api.anthropic.com') do |f|
+      f.request :json
+      f.response :json, content_type: /json/
+      f.adapter Faraday.default_adapter
+    end
+
+    response = conn.post('/v1/messages') do |req|
+      req.headers['x-api-key'] = api_key
+      req.headers['anthropic-version'] = '2023-06-01'
+      req.headers['content-type'] = 'application/json'
+      req.body = params
+    end
+
+    if response.status.to_i >= 200 && response.status.to_i < 300
+      response.body
+    else
+      raise ApiError, "Anthropic API error: #{response.status} #{response.body}"
     end
   end
 

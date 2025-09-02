@@ -471,7 +471,7 @@ const NewCustomerChat: React.FC = () => {
     }, 1000);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (!inputMessage.trim()) return;
     if (!selectedCategory && !conversationId) return;
 
@@ -497,27 +497,104 @@ const NewCustomerChat: React.FC = () => {
     // カテゴリー選択後の初期段階（会話IDがまだない）
     else if (selectedCategory && !conversationId) {
       setMessages(prev => [...prev, userMessage]);
-      
       setIsLoading(true);
-      // AI応答を生成（ローカル）
-      setTimeout(() => {
-        const response = generateAIResponse(messageCopy, selectedCategory, messageCount);
+      
+      // 会話を作成してバックエンドのAI APIを使用
+      try {
+        const userId = sessionManager.getUserId();
+        const tabSessionId = sessionManager.getTabSessionId();
         
-        const botMessage: Message = {
+        // 会話を作成（初回メッセージも同時に送信）
+        const conversationResponse = await fetch('http://localhost:3000/api/v1/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': userId,
+            'X-Session-Id': tabSessionId
+          },
+          body: JSON.stringify({
+            conversation: {
+              metadata: {
+                category: selectedCategory,
+                customer_type: 'new',
+                customer_name: contactForm.name || '未設定',
+                customer_email: contactForm.email || '未設定'
+              }
+            },
+            initial_message: messageCopy,
+            category: selectedCategory,
+            customer_type: 'new'
+          }),
+        });
+
+        if (!conversationResponse.ok) {
+          throw new Error('Failed to create conversation');
+        }
+
+        const conversationData = await conversationResponse.json();
+        const newConversationId = conversationData.id;
+        setConversationId(newConversationId);
+        
+        // ActionCableでサブスクライブ
+        actionCableService.subscribeToConversation(String(newConversationId), {
+          onConnected: () => {
+            setIsConnected(true);
+            // 初回メッセージは既にバックエンドで処理されているため、ここでは送信しない
+            console.log('WebSocket connected for new customer conversation:', newConversationId);
+          },
+          onDisconnected: () => {
+            setIsConnected(false);
+          },
+          onReceived: (data) => {
+            console.log('WebSocket message received:', data);
+            
+            if (data.message) {
+              const newMessage: Message = {
+                id: data.message.id || Date.now(),
+                text: data.message.content,
+                sender: data.message.role === 'user' ? 'user' : 'bot',
+                timestamp: new Date(data.message.created_at || new Date())
+              };
+              
+              console.log('New message to add:', newMessage);
+              
+              // ローディング状態を解除
+              setIsLoading(false);
+              
+              // メッセージを追加（重複チェック付き）
+              setMessages(prev => {
+                console.log('Current messages:', prev);
+                
+                // 重複を避ける
+                const exists = prev.some(m => 
+                  m.id === newMessage.id || 
+                  (m.text === newMessage.text && 
+                   Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 1000)
+                );
+                
+                if (exists) {
+                  console.log('Message already exists, skipping');
+                  return prev;
+                }
+                
+                console.log('Adding new message');
+                return [...prev, newMessage];
+              });
+            }
+          }
+        });
+      } catch (error) {
+        console.error('Error creating conversation:', error);
+        setIsLoading(false);
+        // エラーメッセージを表示
+        const errorMessage: Message = {
           id: Date.now() + 1,
-          text: response.message,
+          text: '申し訳ございません。会話の作成中にエラーが発生しました。しばらくしてから再度お試しください。',
           sender: 'bot',
           timestamp: new Date()
         };
-        setMessages(prev => [...prev, botMessage]);
-        setIsLoading(false);
-        setMessageCount(prev => prev + 1);
-        
-        // アシスタントメッセージも送信
-        if (isConnected) {
-          sendMessageToCable(response.message, 'assistant');
-        }
-      }, 1500);
+        setMessages(prev => [...prev, errorMessage]);
+      }
     }
   };
 

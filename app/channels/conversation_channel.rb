@@ -9,12 +9,20 @@ class ConversationChannel < ApplicationCable::Channel
   end
 
   def send_message(data)
+    Rails.logger.info "="*80
+    Rails.logger.info "[FLOW START] ActionCable - ConversationChannel#send_message"
+    Rails.logger.info "Conversation ID: #{@conversation.id}"
+    Rails.logger.info "Received data: #{data.inspect}"
+    Rails.logger.info "="*80
+    
     # メッセージを保存してブロードキャスト
     message = @conversation.messages.create!(
       content: data['content'],
       role: data['role'] || 'user',
       metadata: data['metadata'] || {}
     )
+    
+    Rails.logger.info "[STEP 1] Message created - ID: #{message.id}, Content: #{message.content}"
 
     # すべての購読者にメッセージをブロードキャスト
     ConversationChannel.broadcast_to(
@@ -25,6 +33,8 @@ class ConversationChannel < ApplicationCable::Channel
         )
       }
     )
+    
+    Rails.logger.info "[STEP 2] Message broadcasted to subscribers"
 
     # 最初のユーザーメッセージで新規顧客の場合、Slack通知を送信
     if message.user? && 
@@ -46,17 +56,29 @@ class ConversationChannel < ApplicationCable::Channel
           conversation_id: @conversation.id
         )
         
-        Rails.logger.info "Slack notification queued for #{category} inquiry: #{@conversation.id}"
+        Rails.logger.info "[STEP 3] Slack notification queued for #{category} inquiry: #{@conversation.id}"
       end
     end
 
     # アシスタントの返信が必要な場合は非同期ジョブをキュー
     if message.user?
+      Rails.logger.info "[STEP 4] User message detected, queueing BotResponseJob"
+      Rails.logger.info "  - Conversation ID: #{@conversation.id}"
+      Rails.logger.info "  - User Message ID: #{message.id}"
+      Rails.logger.info "  - Message Content: #{message.content}"
+      
       BotResponseJob.perform_later(
         conversation_id: @conversation.id,
         user_message_id: message.id
       )
+      
+      Rails.logger.info "[STEP 5] BotResponseJob queued successfully"
+    else
+      Rails.logger.info "[STEP 4] Non-user message, skipping bot response"
     end
+    
+    Rails.logger.info "[FLOW END] ActionCable - ConversationChannel#send_message"
+    Rails.logger.info "="*80
   end
 
   private

@@ -180,8 +180,8 @@ class AnalyzeConversationJob < ApplicationJob
   end
 
   def broadcast_analysis_result(conversation, analysis_result)
-    ActionCable.server.broadcast(
-      "conversation_#{conversation.id}",
+    ConversationChannel.broadcast_to(
+      conversation,
       {
         type: 'analysis_complete',
         analysis: {

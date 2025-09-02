@@ -41,8 +41,8 @@ class MessageBatchJob < ApplicationJob
   end
 
   def notify_batch_complete(conversation)
-    ActionCable.server.broadcast(
-      "conversation_#{conversation.id}",
+    ConversationChannel.broadcast_to(
+      conversation,
       {
         type: 'batch_messages_saved',
         conversation_id: conversation.id,

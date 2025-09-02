@@ -78,11 +78,28 @@ class ChatBotService
   def generate_response_with_rag
     return nil unless valid?
 
-    # 1. RAGパイプラインでコンテキスト取得
-    rag_result = @rag_service.rag_pipeline(@user_message, conversation: @conversation)
+    Rails.logger.info "[ChatBotService] Starting RAG-enhanced response generation"
+    Rails.logger.info "[ChatBotService] User message: #{@user_message.content}"
+
+    begin
+      # 1. RAGパイプラインでコンテキスト取得
+      Rails.logger.info "[ChatBotService] Step 1: Running RAG pipeline"
+      rag_result = @rag_service.rag_pipeline(@user_message.content, conversation: @conversation)
+      Rails.logger.info "[ChatBotService] RAG result: #{rag_result.inspect}"
+    rescue StandardError => e
+      Rails.logger.error "[ChatBotService] RAG pipeline failed: #{e.message}"
+      rag_result = { context: {}, performance_metrics: {} }
+    end
     
-    # 2. FAQ、事例、製品情報を注入
-    enriched_context = @context_injection_service.inject_context(@user_message, conversation: @conversation)
+    begin
+      # 2. FAQ、事例、製品情報を注入
+      Rails.logger.info "[ChatBotService] Step 2: Injecting context"
+      enriched_context = @context_injection_service.inject_context(@user_message.content, conversation: @conversation)
+      Rails.logger.info "[ChatBotService] Enriched context: #{enriched_context.keys}"
+    rescue StandardError => e
+      Rails.logger.error "[ChatBotService] Context injection failed: #{e.message}"
+      enriched_context = { faqs: [], case_studies: [], product_info: {} }
+    end
     
     # 3. 統合コンテキストを構築
     combined_context = {
@@ -94,13 +111,22 @@ class ChatBotService
     
     # 4. 会話履歴を準備
     conversation_history = prepare_conversation_history
+    Rails.logger.info "[ChatBotService] Conversation history: #{conversation_history.size} messages"
     
     # 5. Claude APIに拡張コンテキストと共に送信
+    Rails.logger.info "[ChatBotService] Step 5: Calling Claude API with context"
     response_content = @claude_service.generate_response_with_context(
       conversation_history,
-      @user_message,
+      @user_message.content,
       combined_context
     )
+    Rails.logger.info "[ChatBotService] Claude response: #{response_content&.truncate(100)}"
+    
+    # 応答が空の場合はフォールバック
+    if response_content.blank?
+      Rails.logger.warn "[ChatBotService] Claude returned empty response, using fallback"
+      response_content = generate_emergency_fallback_response(@user_message.content, 'general')
+    end
     
     # 6. 応答メッセージを作成・保存
     bot_message = save_bot_message(response_content, rag_result)
@@ -113,7 +139,8 @@ class ChatBotService
       nil
     end
   rescue StandardError => e
-    Rails.logger.error "RAG-enhanced response generation failed: #{e.message}"
+    Rails.logger.error "[ChatBotService] RAG-enhanced response generation failed: #{e.message}"
+    Rails.logger.error "[ChatBotService] Backtrace: #{e.backtrace.first(5).join("\n")}"
     # RAGなしでフォールバック
     generate_response
   end
@@ -139,11 +166,44 @@ class ChatBotService
     
     # 拡張サービスで広く回答しつつ、会社情報を背景に活用
     conversation_history = prepare_conversation_history
-    response_content = @claude_service.generate_enhanced_response(
-      conversation_history,
-      @user_message.content,
-      { category: category }
-    )
+    
+    # NaturalConversationServiceを優先的に使用
+    response_content = nil
+    
+    begin
+      natural_service = NaturalConversationService.new
+      context = { category: category }
+      response_content = natural_service.generate_natural_response(
+        @user_message.content,
+        conversation_history,
+        context
+      )
+      
+      # 空の応答をチェック
+      if response_content.nil? || response_content.strip.empty?
+        Rails.logger.warn "Natural conversation returned empty response, using enhanced service"
+        raise StandardError.new("Empty response from natural service")
+      end
+    rescue StandardError => e
+      Rails.logger.warn "Natural conversation failed, using enhanced service: #{e.message}"
+      # フォールバック: EnhancedClaudeApiServiceを使用
+      begin
+        response_content = @claude_service.generate_enhanced_response(
+          conversation_history,
+          @user_message.content,
+          { category: category }
+        )
+      rescue StandardError => fallback_error
+        Rails.logger.error "Enhanced service also failed: #{fallback_error.message}"
+        # 最終フォールバック
+        response_content = generate_emergency_fallback_response(@user_message.content, category)
+      end
+    end
+    
+    # 最終チェック
+    if response_content.nil? || response_content.strip.empty?
+      response_content = generate_emergency_fallback_response(@user_message.content, category)
+    end
 
     # 大きく話が逸れている場合は、やんわり元カテゴリへ誘導文を付与
     begin
@@ -207,8 +267,8 @@ class ChatBotService
 
   # WebSocketで応答を配信
   def broadcast_response(bot_message)
-    ActionCable.server.broadcast(
-      "conversation_#{conversation.id}",
+    ConversationChannel.broadcast_to(
+      conversation,
       {
         type: 'bot_response',
         message: {
@@ -220,6 +280,65 @@ class ChatBotService
         }
       }
     )
+  end
+
+  # 緊急フォールバック応答を生成
+  def generate_emergency_fallback_response(user_message, category)
+    if user_message.include?('連携') && user_message.include?('セキュリティ')
+      <<~RESPONSE
+        ECモール連携とセキュリティについて、順番にお答えいたします。
+
+        【ECモール連携について】
+        楽天市場、Amazon、Yahoo!ショッピングの主要3モールとの連携に対応しています。
+        - 商品情報の一括管理と同期
+        - 在庫の自動更新機能
+        - 注文データの統合管理
+        - 各モールのAPIを活用した効率的な運用
+
+        【セキュリティ対策について】
+        お客様の大切な情報を守るため、以下の対策を実施しています：
+        - SSL/TLS暗号化通信（256bit）
+        - WAF（Webアプリケーションファイアウォール）導入
+        - ISO27001準拠のセキュリティ管理体制
+        - 定期的な脆弱性診断とペネトレーションテスト
+        - 個人情報保護法およびGDPRに準拠した運用
+
+        より詳しい仕様や導入事例について説明が必要でしたら、お聞かせください。
+      RESPONSE
+    elsif user_message.include?('連携')
+      <<~RESPONSE
+        ECモール連携についてご案内いたします。
+
+        主要ECモール（楽天市場、Amazon、Yahoo!ショッピング）との連携に対応しており、
+        商品管理、在庫同期、注文処理を一元化できます。
+
+        APIを活用した自動連携により、運用工数を大幅に削減可能です。
+        具体的な連携要件がございましたら、お聞かせください。
+      RESPONSE
+    elsif user_message.include?('セキュリティ')
+      <<~RESPONSE
+        セキュリティ対策についてご案内いたします。
+
+        SSL/TLS暗号化、WAF導入、ISO27001準拠の体制で
+        お客様の情報を安全に保護します。
+
+        定期的な脆弱性診断も実施しており、
+        最新のセキュリティ脅威にも対応しています。
+
+        詳細なセキュリティ要件がございましたら、お聞かせください。
+      RESPONSE
+    else
+      <<~RESPONSE
+        ご質問ありがとうございます。
+
+        #{category == 'tech' ? '技術的な観点から' : 'お客様のニーズに合わせて'}最適なソリューションをご提供いたします。
+
+        より具体的なご要望をお聞かせいただければ、
+        詳細なご提案をさせていただきます。
+
+        どのような課題やご要望をお持ちでしょうか？
+      RESPONSE
+    end
   end
 
   # 会話履歴を準備

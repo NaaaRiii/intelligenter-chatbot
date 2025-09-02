@@ -53,6 +53,29 @@ class ClaudeApiService
     fallback_response
   end
 
+  # 拡張コンテキストを含めて応答を生成
+  def generate_response_with_context(conversation_history, user_message, enriched_context)
+    # コンテキストを含むシステムプロンプトを構築
+    system_prompt_with_context = build_system_prompt_with_context(enhanced_chatbot_system_prompt, enriched_context)
+    
+    # コンテキストを含むメッセージを構築
+    messages = build_messages_with_context(conversation_history, user_message, enriched_context)
+
+    response = @client.messages(
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 800, # コンテキストがあるため増量
+      temperature: 0.7,
+      system: system_prompt_with_context,
+      messages: messages
+    )
+
+    extract_text_content(response)
+  rescue StandardError => e
+    Rails.logger.error "Claude API Error with context: #{e.message}"
+    # コンテキストなしでフォールバック
+    generate_response(conversation_history, user_message)
+  end
+
   # FAQ検索用の質問埋め込みを生成（将来的な拡張用）
   def generate_embedding(text)
     # 注: Anthropic APIは直接埋め込みを提供していないため、
@@ -304,5 +327,81 @@ class ClaudeApiService
   def fallback_response
     'お問い合わせありがとうございます。申し訳ございませんが、現在システムに接続できません。' \
       'しばらくしてから再度お試しいただくか、サポートチームまでお問い合わせください。'
+  end
+
+  # コンテキストを含むシステムプロンプトを構築
+  def build_system_prompt_with_context(base_prompt, enriched_context)
+    context_section = format_enriched_context(enriched_context)
+    
+    <<~PROMPT
+      #{base_prompt}
+      
+      ## 関連コンテキスト情報
+      #{context_section}
+      
+      上記のコンテキスト情報を活用して、より的確で具体的な回答を提供してください。
+    PROMPT
+  end
+
+  # コンテキストを含むメッセージを構築
+  def build_messages_with_context(conversation_history, user_message, enriched_context)
+    messages = build_conversation_messages(conversation_history, user_message)
+    
+    # RAGコンテキストがある場合は最初に追加
+    if enriched_context[:rag_context]
+      context_message = format_rag_context(enriched_context[:rag_context])
+      messages.unshift({ role: 'assistant', content: context_message })
+    end
+    
+    messages
+  end
+
+  # エンリッチされたコンテキストをフォーマット
+  def format_enriched_context(enriched_context)
+    sections = []
+    
+    if enriched_context[:faqs].present?
+      faq_text = enriched_context[:faqs].map { |faq| 
+        "Q: #{faq.content['question']}\nA: #{faq.content['answer']}" 
+      }.join("\n\n")
+      sections << "### 関連FAQ\n#{faq_text}"
+    end
+    
+    if enriched_context[:case_studies].present?
+      case_text = enriched_context[:case_studies].map { |cs| 
+        "問題: #{cs.problem_type}\n解決: #{cs.solution}" 
+      }.join("\n\n")
+      sections << "### 類似事例\n#{case_text}"
+    end
+    
+    if enriched_context[:product_info].present?
+      product_text = enriched_context[:product_info].map { |pi| 
+        pi.content['name'] 
+      }.join(", ")
+      sections << "### 関連製品\n#{product_text}"
+    end
+    
+    sections.join("\n\n")
+  end
+
+  # RAGコンテキストをフォーマット
+  def format_rag_context(rag_context)
+    return '' unless rag_context
+    
+    sections = []
+    
+    if rag_context[:retrieved_messages].present?
+      similar_messages = rag_context[:retrieved_messages].take(3).map { |msg|
+        "- #{msg[:message].content} (関連度: #{(msg[:score] * 100).round}%)"
+      }.join("\n")
+      sections << "過去の類似ケース:\n#{similar_messages}"
+    end
+    
+    if rag_context[:relevant_solutions].present?
+      solutions = rag_context[:relevant_solutions].join("\n- ")
+      sections << "推奨される解決策:\n- #{solutions}"
+    end
+    
+    sections.join("\n\n")
   end
 end

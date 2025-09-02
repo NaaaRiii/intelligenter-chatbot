@@ -22,6 +22,9 @@ class ChatBotService
     @conversation = conversation
     @user_message = user_message
     @context = context
+    @rag_service = RagService.new
+    @context_injection_service = ContextInjectionService.new
+    @claude_service = ClaudeApiService.new
   end
 
   # ボット応答を生成
@@ -64,6 +67,50 @@ class ChatBotService
       user_message_id: user_message.id
     )
     true
+  end
+
+  # RAGを活用した応答生成
+  def generate_response_with_rag
+    return nil unless valid?
+
+    # 1. RAGパイプラインでコンテキスト取得
+    rag_result = @rag_service.rag_pipeline(@user_message, conversation: @conversation)
+    
+    # 2. FAQ、事例、製品情報を注入
+    enriched_context = @context_injection_service.inject_context(@user_message, conversation: @conversation)
+    
+    # 3. 統合コンテキストを構築
+    combined_context = {
+      rag_context: rag_result[:context],
+      faqs: enriched_context[:faqs],
+      case_studies: enriched_context[:case_studies],
+      product_info: enriched_context[:product_info]
+    }
+    
+    # 4. 会話履歴を準備
+    conversation_history = prepare_conversation_history
+    
+    # 5. Claude APIに拡張コンテキストと共に送信
+    response_content = @claude_service.generate_response_with_context(
+      conversation_history,
+      @user_message,
+      combined_context
+    )
+    
+    # 6. 応答メッセージを作成・保存
+    bot_message = save_bot_message(response_content, rag_result)
+    
+    if bot_message
+      broadcast_response(bot_message)
+      bot_message
+    else
+      errors.add(:base, 'ボット応答の保存に失敗しました')
+      nil
+    end
+  rescue StandardError => e
+    Rails.logger.error "RAG-enhanced response generation failed: #{e.message}"
+    # RAGなしでフォールバック
+    generate_response
   end
 
   private
@@ -139,6 +186,30 @@ class ChatBotService
           metadata: bot_message.metadata
         }
       }
+    )
+  end
+
+  # 会話履歴を準備
+  def prepare_conversation_history
+    conversation.messages
+                .order(:created_at)
+                .limit(10)
+                .map { |msg| { role: msg.role, content: msg.content } }
+  end
+
+  # ボットメッセージを保存
+  def save_bot_message(response_content, rag_result = nil)
+    metadata = {
+      rag_used: rag_result.present?,
+      sources_count: rag_result&.dig(:context, :retrieved_messages)&.size || 0,
+      confidence_score: rag_result&.dig(:response, :confidence_score),
+      performance_metrics: rag_result&.dig(:performance_metrics)
+    }
+
+    conversation.messages.create(
+      content: response_content,
+      role: 'assistant',
+      metadata: metadata
     )
   end
 end

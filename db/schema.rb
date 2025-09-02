@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_09_02_010000) do
+ActiveRecord::Schema[7.1].define(version: 2025_09_02_020000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -62,8 +62,10 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_02_010000) do
     t.string "tags", default: [], array: true
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.float "embedding", array: true
     t.index ["content"], name: "index_knowledge_bases_on_content", using: :gin
     t.index ["conversation_id"], name: "index_knowledge_bases_on_conversation_id"
+    t.index ["embedding"], name: "index_knowledge_bases_on_embedding", using: :gin
     t.index ["metadata"], name: "index_knowledge_bases_on_metadata", using: :gin
     t.index ["pattern_type"], name: "index_knowledge_bases_on_pattern_type"
     t.index ["success_score"], name: "index_knowledge_bases_on_success_score"
@@ -77,11 +79,13 @@ ActiveRecord::Schema[7.1].define(version: 2025_09_02_010000) do
     t.jsonb "metadata"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.float "embedding", array: true
     t.index "conversation_id, ((metadata ->> 'original_message_id'::text))", name: "index_messages_unique_error_per_original", unique: true, where: "(((role)::text = 'assistant'::text) AND ((metadata ->> 'error'::text) = 'true'::text))"
     t.index ["conversation_id", "created_at"], name: "index_messages_on_conversation_and_created"
     t.index ["conversation_id", "role"], name: "index_messages_on_conversation_and_role"
     t.index ["conversation_id"], name: "index_messages_on_conversation_id"
     t.index ["created_at"], name: "index_messages_on_created_at"
+    t.index ["embedding"], name: "index_messages_on_embedding", using: :gin
     t.index ["metadata"], name: "index_messages_on_metadata", using: :gin
     t.index ["role"], name: "index_messages_on_role"
   end

@@ -5,7 +5,7 @@ class KnowledgeBase < ApplicationRecord
   belongs_to :conversation, optional: true
   
   # Constants
-  PATTERN_TYPES = %w[successful_conversation failed_conversation best_practice template].freeze
+  PATTERN_TYPES = %w[successful_conversation failed_conversation best_practice template faq product_info resolution_pattern].freeze
   HIGH_SCORE_THRESHOLD = 80
   SUCCESS_THRESHOLD = 70
   

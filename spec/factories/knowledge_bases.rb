@@ -30,5 +30,9 @@ FactoryBot.define do
     trait :with_conversation do
       association :conversation
     end
+    
+    trait :with_embedding do
+      embedding { Array.new(1536) { rand(-1.0..1.0) } }
+    end
   end
 end

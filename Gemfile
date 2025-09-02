@@ -29,6 +29,7 @@ gem 'rack-cors'
 # AI・外部API
 gem 'httparty', '~> 0.21' # HTTP クライアント
 gem 'ruby-anthropic', '~> 0.4.2' # Claude API クライアント
+gem 'ruby-openai', '~> 6.3' # OpenAI API クライアント
 
 # GraphQL
 gem 'graphiql-rails', '~> 1.9', group: :development

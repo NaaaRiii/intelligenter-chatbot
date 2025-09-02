@@ -376,6 +376,10 @@ GEM
       event_stream_parser (>= 0.3.0, < 2.0.0)
       faraday (>= 1)
       faraday-multipart (>= 1)
+    ruby-openai (6.5.0)
+      event_stream_parser (>= 0.3.0, < 2.0.0)
+      faraday (>= 1)
+      faraday-multipart (>= 1)
     ruby-progressbar (1.13.0)
     rubyzip (3.0.1)
     securerandom (0.4.1)
@@ -479,6 +483,7 @@ DEPENDENCIES
   rubocop-rails
   rubocop-rspec
   ruby-anthropic (~> 0.4.2)
+  ruby-openai (~> 6.3)
   selenium-webdriver
   shoulda-matchers
   sidekiq (~> 7.0)

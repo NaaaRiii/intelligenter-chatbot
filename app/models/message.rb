@@ -17,6 +17,7 @@ class Message < ApplicationRecord
   # コールバック
   after_create :update_conversation_timestamp
   after_create :broadcast_message
+  after_create :generate_embedding_async
 
   # デリゲーション
   delegate :user, to: :conversation
@@ -87,6 +88,23 @@ class Message < ApplicationRecord
     save!
   end
 
+  # embeddingが存在するか確認
+  def has_embedding?
+    embedding.present? && embedding.is_a?(Array) && embedding.size == 1536
+  end
+
+  # embeddingを同期的に生成
+  def generate_embedding!
+    vector_service = VectorSearchService.new
+    vector_service.store_message_embedding(self)
+  end
+
+  # embeddingを再生成
+  def regenerate_embedding!
+    self.embedding = nil
+    generate_embedding!
+  end
+
   private
 
   def update_conversation_timestamp
@@ -99,5 +117,16 @@ class Message < ApplicationRecord
       "conversation_#{conversation_id}",
       { message: as_json }
     )
+  end
+
+  # 非同期でembeddingを生成
+  def generate_embedding_async
+    # フィーチャーフラグでembedding生成を制御
+    return unless Rails.application.config.respond_to?(:embedding_enabled) && Rails.application.config.embedding_enabled
+    
+    # バックグラウンドジョブでembeddingを生成
+    EmbeddingGenerationJob.perform_later(id)
+  rescue StandardError => e
+    Rails.logger.error "Failed to enqueue embedding generation job: #{e.message}"
   end
 end

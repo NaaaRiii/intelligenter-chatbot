@@ -7,6 +7,7 @@ class VectorSearchService
   
   def initialize
     @cache = {}
+    @embedding_service = OpenaiEmbeddingService.new
   end
   
   # テキストからベクトル埋め込みを生成
@@ -17,13 +18,18 @@ class VectorSearchService
     cached = @cache[text]
     return cached if cached.present?
     
-    # 実際のAPIコールの代わりにモック実装
-    # 本番環境ではOpenAI APIやClaude APIを使用
-    embedding = generate_mock_embedding(text)
+    # OpenAI APIを使用してembeddingを生成
+    embedding = @embedding_service.generate_embedding(text)
     
     # キャッシュに保存
     @cache[text] = embedding
     
+    embedding
+  rescue StandardError => e
+    Rails.logger.error "Failed to generate embedding: #{e.message}"
+    # フォールバックとしてモック実装を使用
+    embedding = generate_mock_embedding(text)
+    @cache[text] = embedding
     embedding
   end
   
@@ -140,14 +146,19 @@ class VectorSearchService
   
   # バッチでベクトルを生成
   def batch_generate_embeddings(texts, batch_size: DEFAULT_BATCH_SIZE)
-    embeddings = []
-    
-    texts.each_slice(batch_size) do |batch|
-      batch_embeddings = batch.map { |text| generate_embedding(text) }
-      embeddings.concat(batch_embeddings)
+    # OpenAI APIの場合は直接バッチ処理を使用
+    begin
+      @embedding_service.generate_embeddings(texts)
+    rescue StandardError => e
+      Rails.logger.error "Batch embedding generation failed: #{e.message}"
+      # フォールバックとして個別処理
+      embeddings = []
+      texts.each_slice(batch_size) do |batch|
+        batch_embeddings = batch.map { |text| generate_embedding(text) }
+        embeddings.concat(batch_embeddings)
+      end
+      embeddings
     end
-    
-    embeddings
   end
   
   # すべてのメッセージの埋め込みを更新

@@ -1,6 +1,6 @@
 class Analysis < ApplicationRecord
   # 定数
-  ANALYSIS_TYPES = %w[needs sentiment escalation pattern].freeze
+  ANALYSIS_TYPES = %w[needs needs_preview sentiment escalation pattern].freeze
   PRIORITY_LEVELS = %w[low medium high urgent].freeze
   SENTIMENTS = %w[positive neutral negative frustrated].freeze
 

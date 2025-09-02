@@ -187,6 +187,19 @@ class NaturalConversationService
     
     response = @claude_service.generate_response(conversation_history, message)
     response = @claude_service.compact_text(response)
+
+    # フォローアップ質問（最大2-3回）
+    begin
+      followups = build_clarifying_questions(message, conversation_history)
+      flags = Rails.configuration.x.needs_preview
+      max_followups = [[flags.max_followups.to_i, 1].max, 3].min
+      appended = followups.take(max_followups)
+      unless appended.empty?
+        response = [response, "\n\n", appended.map { |q| "確認ですが、#{q}" }.join("\n")].join
+      end
+    rescue StandardError => e
+      Rails.logger.warn "[NaturalConversation] clarifying skipped: #{e.message}"
+    end
     
     Rails.logger.info "[NaturalConversation] Claude API response class: #{response.class}"
     Rails.logger.info "[NaturalConversation] Claude API response: #{response.inspect}"
@@ -213,6 +226,22 @@ class NaturalConversationService
     else
       'こんにちは！お手伝いできることがあればお知らせください。'
     end
+  end
+
+  # 不足しがちな情報に応じて簡易フォローアップを生成
+  def build_clarifying_questions(user_message, conversation_history)
+    inference = NeedInferenceService.new.infer(messages: conversation_history + [{ role: 'user', content: user_message }])
+    questions = []
+    if inference.dig('constraints', 'budget').nil?
+      questions << 'ご予算の目安はどの程度でしょうか？'
+    end
+    if inference.dig('constraints', 'timeline').nil?
+      questions << 'ご希望の導入時期やスケジュール感はありますか？'
+    end
+    if inference['desired_outcome'].nil?
+      questions << '今回達成したい目的やKPIがあればお聞かせください。'
+    end
+    questions
   end
 
   # 会話履歴をフォーマット

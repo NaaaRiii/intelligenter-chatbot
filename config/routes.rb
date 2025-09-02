@@ -57,6 +57,7 @@ Rails.application.routes.draw do
       end
       
       resources :users, only: %i[show update]
+      get 'needs_previews', to: 'needs_previews#index'
     end
   end
 

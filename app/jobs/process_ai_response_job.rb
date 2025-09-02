@@ -103,7 +103,7 @@ class ProcessAiResponseJob < ApplicationJob
     # まずNaturalConversationServiceを試す
     begin
       natural_service = NaturalConversationService.new
-      context = { category: conversation.metadata&.dig('category') || 'general' }
+      context = { category: conversation.metadata&.dig('category') || 'general', conversation_id: conversation.id }
       conversation_history = conversation.messages
                                         .order(:created_at)
                                         .limit(10)

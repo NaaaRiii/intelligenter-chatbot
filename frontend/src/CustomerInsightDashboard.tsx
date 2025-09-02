@@ -49,6 +49,7 @@ const CustomerInsightDashboard: React.FC = () => {
   const [chatFilter, setChatFilter] = useState<'new' | 'existing'>('new');
   const [showReplyModal, setShowReplyModal] = useState(false);
   const [replyMessage, setReplyMessage] = useState('');
+  const [needsPreviews, setNeedsPreviews] = useState<any[]>([]);
 
   // カテゴリー名のマッピング（英語キーと日本語表示名の両方に対応）
   const categoryDisplayNames: { [key: string]: string } = {
@@ -347,9 +348,31 @@ const CustomerInsightDashboard: React.FC = () => {
     
     // 初回データ取得
     fetchConversations();
+    // needs_preview の取得
+    const fetchNeedsPreviews = async () => {
+      try {
+        const res = await fetch('http://localhost:3000/api/v1/needs_previews?limit=20', {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': sessionManager.getUserId()
+          }
+        });
+        if (res.ok) {
+          const json = await res.json();
+          setNeedsPreviews(json.previews || []);
+        } else {
+          console.error('Failed to fetch needs previews:', res.status);
+          setNeedsPreviews([]);
+        }
+      } catch (e) {
+        console.error('Failed to fetch needs previews', e);
+      }
+    };
+    fetchNeedsPreviews();
     
     // 定期的に更新（10秒ごと）
-    const interval = setInterval(fetchConversations, 10000);
+    const interval = setInterval(() => { fetchConversations(); fetchNeedsPreviews(); }, 10000);
     
     return () => clearInterval(interval);
   }, []);
@@ -702,52 +725,40 @@ const CustomerInsightDashboard: React.FC = () => {
                 </button>
               </div>
 
-                              <div className="space-y-4">
-                {highProbabilityDeals.map((deal, index) => (
-                  <div key={deal.id} className="bg-white border rounded-lg p-6 hover:shadow-md transition-shadow">
+              {/* needs_preview を表示 */}
+              <div className="space-y-4">
+                {needsPreviews.map((pv, index) => (
+                  <div key={`${pv.conversation_id}-${index}`} className="bg-white border rounded-lg p-6 hover:shadow-md transition-shadow">
                     <div className="flex items-start justify-between">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-3">
-                          <h3 className="text-lg font-semibold text-gray-900">{deal.companyName}</h3>
-                          <span className="text-sm text-gray-500">({deal.industry})</span>
+                          <h3 className="text-lg font-semibold text-gray-900">{pv.company_name || '不明'}</h3>
+                          <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-1 rounded">
+                            信頼度 {Math.round((pv.confidence || 0) * 100)}%
+                          </span>
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded">
-                            {deal.customerType === 'new' ? '新規' : '既存'}
+                            会話 #{pv.conversation_id}
                           </span>
                         </div>
-                        
                         <div className="grid grid-cols-1 md:grid-cols-1 gap-4 mb-4">
                           <div>
-                            <p className="text-sm font-medium text-gray-600 mb-2">抽出されたニーズ・課題</p>
-                            <div className="flex flex-wrap gap-1 mb-4">
-                              {deal.extractedNeeds.map((need, idx) => (
-                                <span key={idx} className="bg-orange-100 text-orange-700 text-sm px-3 py-1 rounded-full font-medium">
-                                  {need}
-                                </span>
+                            <p className="text-sm font-medium text-gray-600 mb-2">推定ニーズ / カテゴリ</p>
+                            <div className="flex flex-wrap gap-2 mb-2">
+                              <span className="bg-orange-100 text-orange-700 text-xs px-2 py-1 rounded-full">{pv.need_type || 'N/A'}</span>
+                              <span className="bg-indigo-100 text-indigo-700 text-xs px-2 py-1 rounded-full">{pv.category || 'N/A'}</span>
+                            </div>
+                            <p className="text-sm font-medium text-gray-600 mb-1">キーワード</p>
+                            <div className="flex flex-wrap gap-1">
+                              {(pv.keywords || []).map((k: string, i: number) => (
+                                <span key={i} className="bg-gray-100 text-gray-700 text-xs px-2 py-1 rounded-full">{k}</span>
                               ))}
                             </div>
                           </div>
-                          
-                          {/* キーインサイトを強調表示 */}
-                          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-200 rounded-lg p-4">
-                            <p className="text-sm font-semibold text-blue-700 mb-2 flex items-center gap-1">
-                              <Eye className="w-4 h-4" />
-                              重要なインサイト
-                            </p>
-                            <p className="text-sm text-blue-800 leading-relaxed">{deal.keyInsights}</p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-6 text-sm">
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-4 h-4 text-gray-400" />
-                            <span className="text-gray-600">最終問い合わせ日時: {deal.lastContact}</span>
-                          </div>
                         </div>
                       </div>
-
                       <div className="ml-6">
-                        <button className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
-                          詳細分析を見る
+                        <button onClick={() => window.open(`http://localhost:4000/chat#${pv.conversation_id}`, '_blank')} className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm hover:bg-blue-700 transition-colors">
+                          会話を開く
                         </button>
                       </div>
                     </div>

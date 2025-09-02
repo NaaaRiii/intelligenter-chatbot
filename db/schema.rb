@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[7.1].define(version: 2025_08_31_034657) do
+ActiveRecord::Schema[7.1].define(version: 2025_09_02_010000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "plpgsql"
   enable_extension "vector"
@@ -52,6 +52,24 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_31_034657) do
     t.index ["user_id"], name: "index_conversations_on_user_id"
   end
 
+  create_table "knowledge_bases", force: :cascade do |t|
+    t.bigint "conversation_id"
+    t.string "pattern_type", null: false
+    t.jsonb "content", default: {}, null: false
+    t.text "summary"
+    t.integer "success_score", default: 0
+    t.jsonb "metadata", default: {}
+    t.string "tags", default: [], array: true
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["content"], name: "index_knowledge_bases_on_content", using: :gin
+    t.index ["conversation_id"], name: "index_knowledge_bases_on_conversation_id"
+    t.index ["metadata"], name: "index_knowledge_bases_on_metadata", using: :gin
+    t.index ["pattern_type"], name: "index_knowledge_bases_on_pattern_type"
+    t.index ["success_score"], name: "index_knowledge_bases_on_success_score"
+    t.index ["tags"], name: "index_knowledge_bases_on_tags", using: :gin
+  end
+
   create_table "messages", force: :cascade do |t|
     t.bigint "conversation_id", null: false
     t.text "content"
@@ -68,6 +86,23 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_31_034657) do
     t.index ["role"], name: "index_messages_on_role"
   end
 
+  create_table "resolution_paths", force: :cascade do |t|
+    t.string "problem_type"
+    t.text "solution"
+    t.integer "steps_count"
+    t.integer "resolution_time"
+    t.boolean "successful", default: false
+    t.jsonb "key_actions", default: []
+    t.jsonb "metadata", default: {}
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["key_actions"], name: "index_resolution_paths_on_key_actions", using: :gin
+    t.index ["metadata"], name: "index_resolution_paths_on_metadata", using: :gin
+    t.index ["problem_type"], name: "index_resolution_paths_on_problem_type"
+    t.index ["steps_count"], name: "index_resolution_paths_on_steps_count"
+    t.index ["successful"], name: "index_resolution_paths_on_successful"
+  end
+
   create_table "users", force: :cascade do |t|
     t.string "email"
     t.string "name"
@@ -81,5 +116,6 @@ ActiveRecord::Schema[7.1].define(version: 2025_08_31_034657) do
 
   add_foreign_key "analyses", "conversations"
   add_foreign_key "conversations", "users"
+  add_foreign_key "knowledge_bases", "conversations"
   add_foreign_key "messages", "conversations"
 end

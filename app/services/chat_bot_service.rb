@@ -24,15 +24,20 @@ class ChatBotService
     @context = context
     @rag_service = RagService.new
     @context_injection_service = ContextInjectionService.new
-    @claude_service = ClaudeApiService.new
+    @claude_service = EnhancedClaudeApiService.new
   end
 
-  # ボット応答を生成
+  # ボット応答を生成（RAG版を優先使用）
   def generate_response # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
     return nil unless valid?
 
+    # RAG版を優先的に使用
+    response = generate_response_with_rag
+    return response if response
+
+    # フォールバック: 従来版
     intent = recognize_intent
-    response_content = build_response(intent)
+    response_content = build_response_with_category(intent)
 
     # 応答メッセージを作成
     bot_message = conversation.messages.build(
@@ -128,8 +133,36 @@ class ChatBotService
     }
   end
 
-  # 応答を構築
-  def build_response(intent)
+  # カテゴリー別の応答を構築
+  def build_response_with_category(intent)
+    category = conversation.metadata&.dig('category') || 'general'
+    
+    # 拡張サービスで広く回答しつつ、会社情報を背景に活用
+    conversation_history = prepare_conversation_history
+    response_content = @claude_service.generate_enhanced_response(
+      conversation_history,
+      @user_message.content,
+      { category: category }
+    )
+
+    # 大きく話が逸れている場合は、やんわり元カテゴリへ誘導文を付与
+    begin
+      deviation = TopicDeviationService.new.detect_deviation(message: @user_message.content, conversation: @conversation)
+      if deviation[:deviated] && deviation[:topic_relevance].to_f < TopicDeviationService::TOPIC_RELEVANCE_THRESHOLD
+        suggestion = TopicDeviationService.new.suggest_redirect(deviation)
+        transition = suggestion[:transition_phrase]
+        redirect_msg = suggestion[:redirect_message]
+        response_content = [response_content, "\n\n#{transition}#{redirect_msg}。"].compact.join
+      end
+    rescue StandardError => e
+      Rails.logger.warn "Topic deviation handling skipped: #{e.message}"
+    end
+
+    response_content || build_response_fallback(intent)
+  end
+
+  # 応答を構築（フォールバック）
+  def build_response_fallback(intent)
     template_manager = ResponseTemplates.new(
       intent_type: intent[:type],
       context: build_context(intent)

@@ -53,6 +53,25 @@ class ClaudeApiService
     fallback_response
   end
 
+  # カテゴリー別のシステムプロンプトを使用して応答を生成
+  def generate_response_with_category(conversation_history, user_message, category)
+    messages = build_conversation_messages(conversation_history, user_message)
+    system_prompt = build_category_specific_prompt(category)
+
+    response = @client.messages(
+      model: 'claude-3-haiku-20240307',
+      max_tokens: 800,
+      temperature: 0.7,
+      system: system_prompt,
+      messages: messages
+    )
+
+    extract_text_content(response)
+  rescue StandardError => e
+    Rails.logger.error "Claude API Error with category #{category}: #{e.message}"
+    fallback_response
+  end
+
   # 拡張コンテキストを含めて応答を生成
   def generate_response_with_context(conversation_history, user_message, enriched_context)
     # コンテキストを含むシステムプロンプトを構築
@@ -98,6 +117,154 @@ class ClaudeApiService
   end
 
   private
+
+  # カテゴリー別のシステムプロンプトを構築
+  def build_category_specific_prompt(category)
+    base_prompt = enhanced_chatbot_system_prompt
+    category_specific_content = case category
+    when 'tech' # 画面側の「技術・システム関連」と整合
+      development_category_prompt
+    when 'cost'
+      cost_category_prompt
+    when 'cdp'
+      cdp_category_prompt
+    when 'ma_crm'
+      ma_crm_category_prompt
+    when 'advertising'
+      advertising_category_prompt
+    when 'analytics'
+      analytics_category_prompt
+    when 'development'
+      development_category_prompt
+    when 'ecommerce'
+      ecommerce_category_prompt
+    when 'ai_ml'
+      ai_ml_category_prompt
+    when 'organization'
+      organization_category_prompt
+    when 'competition'
+      competition_category_prompt
+    else
+      ""
+    end
+    
+    "#{base_prompt}\n\n## カテゴリー専門知識\n#{category_specific_content}"
+  end
+
+  # 費用カテゴリーの専門プロンプト
+  def cost_category_prompt
+    <<~PROMPT
+      ### 費用・契約に関する専門知識
+
+      **予算別サービス提案**
+      
+      **〜50万円の予算で提供可能なサービス：**
+      
+      1. **Google Ads運用代行（月額15-25万円）**
+         - 広告費別途（月20-30万円推奨）
+         - キーワード調査、広告文作成、入札調整
+         - 月次レポート、改善提案
+         - 予想効果：CPA改善20-30%、CVR向上15-25%
+      
+      2. **MA/CRM初期設定サービス（30-45万円）**
+         - HubSpot、Salesforce等の初期設定
+         - リード管理フロー構築
+         - 基本的な自動化シナリオ設計
+         - 予想効果：営業効率30%向上、リード漏れ80%削減
+      
+      3. **SEOコンサルティング（月額20-35万円）**
+         - キーワード戦略立案
+         - テクニカルSEO改善
+         - コンテンツ戦略設計
+         - 予想効果：オーガニック流入40-60%増、検索順位平均10位向上
+      
+      4. **ECサイト改善（25-40万円）**
+         - UI/UX改善提案
+         - カート放棄率対策
+         - 決済フロー最適化
+         - 予想効果：CVR 20-35%改善、売上15-25%向上
+      
+      5. **データ分析ダッシュボード構築（20-35万円）**
+         - Google Analytics 4設定
+         - Looker Studio活用
+         - KPI可視化、自動レポート
+         - 予想効果：分析工数70%削減、意思決定スピード2倍
+
+      **料金体系の特徴：**
+      - 成果報酬オプション有り（基本料金+成果連動）
+      - 月額サブスクリプション対応
+      - 段階的導入で初期投資を抑制可能
+      - ROI保証制度（3ヶ月で効果が出ない場合は返金）
+      
+      **次のステップ：**
+      予算と課題に応じて、最適なプランを無料診断でご提案いたします。
+    PROMPT
+  end
+
+  # CDP運用カテゴリーの専門プロンプト  
+  def cdp_category_prompt
+    <<~PROMPT
+      ### CDP運用に関する専門知識
+
+      **CDPサービス詳細：**
+      
+      1. **データ統合・管理**
+         - 複数のタッチポイントからの顧客データ統合
+         - リアルタイムデータ同期
+         - データクレンジング・正規化
+      
+      2. **セグメント設計・運用**
+         - 行動ベース・属性ベースセグメンテーション
+         - 動的セグメント更新
+         - A/Bテストによるセグメント最適化
+      
+      3. **外部ツール連携**
+         - MA/CRM、広告プラットフォームとの連携
+         - APIによるリアルタイムデータ同期
+         - カスタマージャーニー可視化
+      
+      **提供可能なCDPソリューション：**
+      - Salesforce Data Cloud
+      - Adobe Real-time CDP  
+      - Treasure Data CDP
+      - カスタムCDP開発
+      
+      課題やご要望をお聞かせください。最適なCDP戦略をご提案いたします。
+    PROMPT
+  end
+
+  # その他のカテゴリープロンプトも同様に定義...
+  def ma_crm_category_prompt
+    "MA/CRM最適化に関する専門知識とサービス詳細をここに記載"
+  end
+
+  def advertising_category_prompt  
+    "Web広告運用に関する専門知識とサービス詳細をここに記載"
+  end
+
+  def analytics_category_prompt
+    "データ分析に関する専門知識とサービス詳細をここに記載"
+  end
+
+  def development_category_prompt
+    "システム開発に関する専門知識とサービス詳細をここに記載"
+  end
+
+  def ecommerce_category_prompt
+    "ECサイト運営に関する専門知識とサービス詳細をここに記載"
+  end
+
+  def ai_ml_category_prompt
+    "AI・機械学習に関する専門知識とサービス詳細をここに記載"
+  end
+
+  def organization_category_prompt
+    "組織・体制に関する専門知識とサービス詳細をここに記載"
+  end
+
+  def competition_category_prompt
+    "競合対策に関する専門知識とサービス詳細をここに記載"
+  end
 
   def enhanced_system_prompt
     <<~PROMPT

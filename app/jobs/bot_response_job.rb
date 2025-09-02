@@ -92,31 +92,25 @@ class BotResponseJob < ApplicationJob
   end
 
   def broadcast_error(conversation, error_message)
-    ActionCable.server.broadcast(
-      "conversation_#{conversation.id}",
+    # ConversationChannelの形式に合わせる
+    ConversationChannel.broadcast_to(
+      conversation,
       {
-        type: 'bot_error',
-        message: {
-          id: error_message.id,
-          content: error_message.content,
-          role: error_message.role,
-          created_at: error_message.created_at
-        }
+        message: error_message.as_json(
+          only: [:id, :content, :role, :created_at, :metadata]
+        )
       }
     )
   end
 
   def broadcast_bot_message(conversation, message)
-    ActionCable.server.broadcast(
-      "conversation_#{conversation.id}",
+    # ConversationChannelの形式に合わせる
+    ConversationChannel.broadcast_to(
+      conversation,
       {
-        type: 'new_message',
-        message: {
-          id: message.id,
-          content: message.content,
-          role: message.role,
-          created_at: message.created_at
-        }
+        message: message.as_json(
+          only: [:id, :content, :role, :created_at, :metadata]
+        )
       }
     )
   end

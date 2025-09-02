@@ -17,8 +17,9 @@ class EnhancedClaudeApiService < ClaudeApiService
       return generate_info_collection_response(analysis[:category], analysis)
     end
     
-    # 専門外の質問の場合
-    if out_of_scope?(analysis[:category])
+    # 専門外でも、まずは可能な範囲で回答。その後で丁寧に誘導
+    # 完全に不適切・危険な領域のみ断る（法律・医療・投資の明確な助言要求など）
+    if hard_out_of_scope?(user_message)
       return handle_out_of_scope(analysis[:category])
     end
     
@@ -34,6 +35,18 @@ class EnhancedClaudeApiService < ClaudeApiService
     )
     
     response_text = extract_text_content(response)
+
+    # 大きく話が逸れている場合は、元のカテゴリへ穏やかにリダイレクト
+    begin
+      deviation = TopicDeviationService.new.detect_deviation(message: user_message, conversation: OpenStruct.new(messages: conversation_history))
+      if deviation[:deviated] && deviation[:topic_relevance].to_f < TopicDeviationService::TOPIC_RELEVANCE_THRESHOLD
+        suggestion = TopicDeviationService.new.suggest_redirect(deviation)
+        response_text = [response_text, "\n\n#{suggestion[:transition_phrase]}#{suggestion[:redirect_message]}。"].join
+      end
+    rescue StandardError => e
+      Rails.logger.warn "Enhanced deviation handling skipped: #{e.message}"
+    end
+
     add_follow_up_question(response_text, analysis[:category])
   rescue StandardError => e
     Rails.logger.error "Enhanced Claude API Error: #{e.message}"
@@ -135,6 +148,17 @@ class EnhancedClaudeApiService < ClaudeApiService
       
       代わりに、マーケティング戦略の改善やデータ分析についてはいかがでしょうか？
     RESPONSE
+  end
+
+  # 危険/不適切な領域を弾く（法律・医療・投資の具体助言など）
+  def hard_out_of_scope?(user_message)
+    return false unless user_message
+    patterns = [
+      /法的.?助言|違法|犯罪|訴訟/, # 法律
+      /医療|薬事|診断|処方/,       # 医療
+      /投資|株|暗号資産|仮想通貨|為替/ # 金融
+    ]
+    patterns.any? { |re| user_message.match?(re) }
   end
 
   # フォローアップ質問を追加

@@ -4,6 +4,8 @@ import CategorySelector from './CategorySelector';
 import { generateAIResponse } from './companyKnowledge';
 import actionCableService from './services/actionCable';
 import ChatHistory from './components/ChatHistory';
+import FloatingFormButton from './components/FloatingFormButton';
+import FloatingForm from './components/FloatingForm';
 // import AutoResumeChat from './components/AutoResumeChat';
 import sessionManager from './services/sessionManager';
 
@@ -41,6 +43,8 @@ const NewCustomerChat: React.FC = () => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [hasResumed, setHasResumed] = useState(false);
+  const [isFloatingFormVisible, setIsFloatingFormVisible] = useState(false);
+  const [showInlineForm, setShowInlineForm] = useState(false);
 
   // 会話を再開する
   const handleResumeConversation = async (resumeConversationId: string) => {
@@ -777,6 +781,244 @@ const NewCustomerChat: React.FC = () => {
     });
   };
 
+  // フローティングフォームのハンドラー
+  const handleFloatingFormToggle = () => {
+    if (showInlineForm) {
+      // フォームが表示されている場合は閉じる
+      setShowInlineForm(false);
+    } else {
+      // フローティングフォームではなく、チャット内にフォームを表示
+      setIsFloatingFormVisible(false);
+      setShowInlineForm(true);
+    }
+  };
+
+  // インラインフォーム送信ハンドラー
+  const handleInlineFormSubmit = async (formData: any, formType: 'diagnosis' | 'support') => {
+    // フォームを非表示にする
+    setShowInlineForm(false);
+    
+    // 以下は既存のフローティングフォーム送信処理と同じ
+    await handleFloatingFormSubmit(formData, formType);
+  };
+
+  const handleFloatingFormSubmit = async (formData: any, formType: 'diagnosis' | 'support') => {
+    // フォーム送信時にチャットに統合
+    const formTitle = formType === 'diagnosis' ? '無料診断のお申し込み' : 'サポートのお問い合わせ';
+    
+    // チャットにフォーム内容を表示するメッセージを作成
+    const formMessage = `【${formTitle}】
+カテゴリー: ${categoryNames[formData.category as keyof typeof categoryNames] || 'その他'}
+会社名: ${formData.company}
+お名前: ${formData.name}
+メールアドレス: ${formData.email}
+電話番号: ${formData.phone || 'なし'}
+ご相談内容: ${formData.message}`;
+
+    const userMessage: Message = {
+      id: Date.now(),
+      text: formMessage,
+      sender: 'user',
+      timestamp: new Date()
+    };
+
+    setMessages(prev => [...prev, userMessage]);
+
+    // 既存のフォーム送信処理を流用
+    const updatedContactForm = {
+      name: formData.name,
+      company: formData.company,
+      email: formData.email,
+      phone: formData.phone || '',
+      message: formData.message
+    };
+
+    const updatedSelectedCategory = formData.category;
+    
+    // setContactForm(updatedContactForm);
+    // setSelectedCategory(updatedSelectedCategory);
+
+    // 確認メッセージ
+    const confirmMessage: Message = {
+      id: Date.now() + 1,
+      text: '内容をご確認いたします...',
+      sender: 'bot',
+      timestamp: new Date(),
+      isWaiting: true
+    };
+    setMessages(prev => [...prev, confirmMessage]);
+
+    try {
+      let realConversationId: number;
+      
+      // 既存の会話IDが設定されているか確認
+      if (conversationId && conversationId !== 'null') {
+        realConversationId = parseInt(conversationId);
+      } else {
+        // 新しい会話を作成
+        const newSessionId = `${sessionManager.getTabSessionId()}-${Date.now()}`;
+        const createResponse = await fetch('http://localhost:3000/api/v1/conversations', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-User-Id': sessionManager.getUserId(),
+            'X-Session-Id': sessionManager.getTabSessionId()
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            conversation: {
+              session_id: newSessionId,
+              status: 'active',
+              metadata: {
+                category: updatedSelectedCategory || '',
+                company: updatedContactForm.company,
+                contactName: updatedContactForm.name,
+                email: updatedContactForm.email,
+                phone: updatedContactForm.phone,
+                customerType: 'new',
+                formType: formType
+              }
+            }
+          })
+        });
+        
+        const responseData = await createResponse.json();
+        
+        if (!createResponse.ok) {
+          console.error('Conversation creation error:', responseData);
+          throw new Error(responseData.error || 'Failed to create conversation');
+        }
+        
+        const { conversation } = responseData;
+        realConversationId = conversation.id;
+      }
+      
+      // ActionCable接続と設定（既存ロジックを流用）
+      if (!isConnected || conversationId !== String(realConversationId)) {
+        actionCableService.unsubscribe();
+        actionCableService.subscribeToConversation(String(realConversationId), {
+          onConnected: () => {
+            console.log(`Connected to conversation ${realConversationId}`);
+            setIsConnected(true);
+            
+            // フォームデータを含むメッセージを送信
+            actionCableService.sendMessage({
+              content: formMessage,
+              role: 'user',
+              metadata: {
+                category: updatedSelectedCategory,
+                conversationId: realConversationId,
+                formType: formType
+              }
+            });
+          },
+          onDisconnected: () => {
+            setIsConnected(false);
+          },
+          onReceived: (data) => {
+            if (data.message) {
+              const newMessage: Message = {
+                id: data.message.id || Date.now(),
+                text: data.message.content,
+                sender: data.message.role === 'company' ? 'company' : data.message.role === 'assistant' ? 'bot' : 'user',
+                timestamp: new Date(data.message.created_at || Date.now()),
+                role: data.message.role
+              };
+              
+              if (data.message.role === 'company') {
+                if ((window as any).autoReplyTimer) {
+                  clearTimeout((window as any).autoReplyTimer);
+                  (window as any).autoReplyTimer = null;
+                }
+                
+                setMessages(prev => {
+                  const filtered = prev.filter(m => !m.isWaiting);
+                  const exists = filtered.some(m => m.id === newMessage.id);
+                  if (exists) return filtered;
+                  return [...filtered, newMessage];
+                });
+              } else {
+                setMessages(prev => {
+                  const exists = prev.some(m => 
+                    m.id === newMessage.id || 
+                    (m.text === newMessage.text && 
+                     Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 1000)
+                  );
+                  if (exists) return prev;
+                  return [...prev, newMessage];
+                });
+              }
+            }
+          }
+        });
+      } else if (isConnected) {
+        // 既存の接続でメッセージを送信
+        actionCableService.sendMessage({
+          content: formMessage,
+          role: 'user',
+          metadata: {
+            category: updatedSelectedCategory,
+            conversationId: realConversationId,
+            formType: formType
+          }
+        });
+      }
+      
+      // 会話IDを更新
+      setConversationId(String(realConversationId));
+      sessionStorage.setItem('current_conversation_id', String(realConversationId));
+      
+      // 90秒後の自動返信設定
+      const autoReplyTimer = setTimeout(() => {
+        const autoReplyMessage: Message = {
+          id: Date.now(),
+          text: `【${formTitle}】のお申し込みありがとうございます。
+以下の内容で承りました。
+
+【お客様情報】
+お名前: ${updatedContactForm.name}
+会社名: ${updatedContactForm.company}
+メールアドレス: ${updatedContactForm.email}
+電話番号: ${updatedContactForm.phone || 'なし'}
+ご相談内容: ${updatedContactForm.message}
+
+2営業日以内に担当者よりご連絡させていただきます。`,
+          sender: 'company',
+          timestamp: new Date()
+        };
+        
+        setMessages(prev => {
+          const filtered = prev.filter(m => !m.isWaiting);
+          return [...filtered, autoReplyMessage];
+        });
+        
+        actionCableService.sendMessage({
+          content: autoReplyMessage.text,
+          role: 'company',
+          metadata: {
+            conversationId: realConversationId
+          }
+        });
+      }, 90000);
+      
+      (window as any).autoReplyTimer = autoReplyTimer;
+      
+    } catch (error) {
+      console.error('Error creating conversation from floating form:', error);
+      // エラー時は待機メッセージを削除してエラーメッセージを表示
+      setMessages(prev => {
+        const filtered = prev.filter(m => !m.isWaiting);
+        const errorMessage: Message = {
+          id: Date.now(),
+          text: 'お問い合わせの送信中にエラーが発生しました。恐れ入りますが、しばらく時間をおいて再度お試しください。',
+          sender: 'bot',
+          timestamp: new Date()
+        };
+        return [...filtered, errorMessage];
+      });
+    }
+  };
+
   return (
     // <AutoResumeChat onConversationLoaded={handleConversationLoaded}>
       <div style={{
@@ -919,8 +1161,28 @@ const NewCustomerChat: React.FC = () => {
             </div>
           )}
           
+          {/* インラインフローティングフォーム */}
+          {showInlineForm && (
+            <div style={{
+              animation: 'fadeIn 0.3s ease-in',
+              backgroundColor: 'white',
+              borderRadius: '0.75rem',
+              padding: '1.5rem',
+              marginTop: '1rem',
+              boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+            }}>
+              <FloatingForm
+                isVisible={true}
+                onClose={() => setShowInlineForm(false)}
+                onSubmit={handleInlineFormSubmit}
+                selectedCategory={selectedCategory}
+                isInline={true}
+              />
+            </div>
+          )}
+
           {/* 依頼フォーム */}
-          {showContactForm && (
+          {/* {showContactForm && (
             <div style={{
               animation: 'fadeIn 0.3s ease-in',
               backgroundColor: 'white',
@@ -1148,7 +1410,7 @@ const NewCustomerChat: React.FC = () => {
                 </button>
               </form>
             </div>
-          )}
+          )} */}
         </div>
       </div>
 
@@ -1223,6 +1485,22 @@ const NewCustomerChat: React.FC = () => {
           }
         }
       `}</style>
+
+      {/* フローティングフォーム機能 */}
+      <FloatingFormButton 
+        onFormToggle={handleFloatingFormToggle}
+        isFormVisible={showInlineForm}
+      />
+      
+      {/* フローティングフォーム（非表示） - インラインフォームを使用するため */}
+      {false && (
+        <FloatingForm
+          isVisible={isFloatingFormVisible}
+          onClose={() => setIsFloatingFormVisible(false)}
+          onSubmit={handleFloatingFormSubmit}
+          selectedCategory={selectedCategory}
+        />
+      )}
       </div>
     // </AutoResumeChat>
   );

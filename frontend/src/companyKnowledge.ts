@@ -173,7 +173,36 @@ export function searchKnowledge(query: string): string {
   const lowerQuery = query.toLowerCase();
   let relevantInfo: string[] = [];
 
-  // キーワードマッチングによる関連情報の抽出
+  // 具体的な金額に関する質問
+  if (lowerQuery.includes('50万') || lowerQuery.includes('50万円')) {
+    relevantInfo.push('月額50万円でご提供できるサービス:');
+    relevantInfo.push('• マーケティングDXコンサルティング（戦略立案・実行支援）');
+    relevantInfo.push('• CDP構築・データ統合による顧客分析');
+    relevantInfo.push('• MA/CRM最適化とワークフロー設計');
+    relevantInfo.push('• AIを活用した業務自動化の設計・実装');
+    relevantInfo.push('• 月次レポート・改善提案');
+    return relevantInfo.join('\n');
+  }
+
+  if (lowerQuery.includes('30万') || lowerQuery.includes('30万円')) {
+    relevantInfo.push('月額30万円でご提供できるサービス:');
+    relevantInfo.push('• Web広告運用・最適化（Google, Facebook等）');
+    relevantInfo.push('• SEO/コンテンツマーケティング');
+    relevantInfo.push('• 基本的なデータ分析・レポーティング');
+    relevantInfo.push('• 既存システムの改善・最適化');
+    return relevantInfo.join('\n');
+  }
+
+  if (lowerQuery.includes('100万') || lowerQuery.includes('100万円')) {
+    relevantInfo.push('100万円でご提供できるサービス:');
+    relevantInfo.push('• システム開発初期費用（基本設計・要件定義）');
+    relevantInfo.push('• ECサイト構築・リニューアル');
+    relevantInfo.push('• マーケティングプラットフォーム開発');
+    relevantInfo.push('• データ分析基盤の構築');
+    return relevantInfo.join('\n');
+  }
+
+  // 一般的なキーワードマッチング
   if (lowerQuery.includes('料金') || lowerQuery.includes('費用') || lowerQuery.includes('価格')) {
     relevantInfo.push(`マーケティング支援: ${companyKnowledge.services.marketing.pricing.consulting}`);
     relevantInfo.push(`広告運用: ${companyKnowledge.services.marketing.pricing.operation}`);

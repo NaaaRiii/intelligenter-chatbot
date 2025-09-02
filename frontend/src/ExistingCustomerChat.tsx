@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { Send, MessageCircle, User, Mail, Building, Phone } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { Send, MessageCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import CategorySelector from './ExistingCategorySelector';
 import { generateExistingCustomerResponse } from './existingCustomerKnowledge';
 import actionCableService from './services/actionCable';
 import ChatHistory from './components/ChatHistory';
+import ExistingCustomerFormButton from './components/ExistingCustomerFormButton';
+import ExistingCustomerForm from './components/ExistingCustomerForm';
 // import AutoResumeChat from './components/AutoResumeChat';
 import sessionManager from './services/sessionManager';
 
@@ -26,23 +28,20 @@ const ExistingCustomerChat: React.FC = () => {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [showContactForm, setShowContactForm] = useState(false);
-  const [messageCount, setMessageCount] = useState(0);
-  const [contactForm, setContactForm] = useState({
-    name: sessionStorage.getItem('customer_name') || '',
-    company: sessionStorage.getItem('customer_company') || '',
-    email: sessionStorage.getItem('customer_email') || '',
-    phone: '',
-    message: ''
-  });
-  const [formErrors, setFormErrors] = useState({
-    name: '',
-    company: '',
-    email: '',
-    message: ''
-  });
+  // const [messageCount, setMessageCount] = useState(0);
+  // 旧インラインフォームの状態（未使用のため削除）
+  // 旧フォームのバリデーション状態（未使用のため無効化）
+  // const [formErrors, setFormErrors] = useState({
+  //   name: '',
+  //   company: '',
+  //   email: '',
+  //   message: ''
+  // });
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [hasResumed, setHasResumed] = useState(false);
+  // const [hasResumed, setHasResumed] = useState(false);
+  const bottomRef = useRef<HTMLDivElement | null>(null);
+  const scrollToBottom = () => bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
 
   // 会話を再開する
   const handleResumeConversation = async (resumeConversationId: string) => {
@@ -257,7 +256,8 @@ const ExistingCustomerChat: React.FC = () => {
                   role: msg.role
                 }));
                 setMessages(restoredMessages);
-                setHasResumed(true);
+                // 復元済みフラグ（UI未使用のためコメントアウト）
+                // setHasResumed(true);
               }
             }
           }
@@ -303,7 +303,7 @@ const ExistingCustomerChat: React.FC = () => {
                     role: msg.role
                   }));
                   setMessages(restoredMessages);
-                  setHasResumed(true);
+                  // setHasResumed(true);
                 }
               }
             } else if (response.status === 404) {
@@ -329,7 +329,7 @@ const ExistingCustomerChat: React.FC = () => {
       // 会話がある場合のみActionCableに接続
       if (convId) {
         // ActionCableに接続
-        const subscription = actionCableService.subscribeToConversation(convId, {
+        actionCableService.subscribeToConversation(convId, {
           onConnected: () => {
             console.log('WebSocket connected');
             setIsConnected(true);
@@ -610,7 +610,7 @@ const ExistingCustomerChat: React.FC = () => {
         };
         setMessages(prev => [...prev, botMessage]);
         setIsLoading(false);
-        setMessageCount(prev => prev + 1);
+        // setMessageCount(prev => prev + 1);
         
         // アシスタントメッセージも送信
         if (isConnected) {
@@ -620,69 +620,54 @@ const ExistingCustomerChat: React.FC = () => {
     }
   };
 
-  const handleContactSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // バリデーション
-    const errors = {
-      name: '',
-      company: '',
-      email: '',
-      message: ''
-    };
-    
-    if (!contactForm.name.trim()) {
-      errors.name = 'お名前を入力してください';
+  // 旧フォーム送信ハンドラー（未使用のため削除）
+
+  // フローティングフォームのハンドラー
+  const handleFloatingFormToggle = () => {
+    if (showContactForm) {
+      // フォームが表示されている場合は閉じる
+      setShowContactForm(false);
+    } else {
+      // 既存のcontactFormを表示
+      setShowContactForm(true);
     }
-    if (!contactForm.company.trim()) {
-      errors.company = '会社名を入力してください';
+  };
+
+  // フォーム表示時に下端へスクロール
+  useEffect(() => {
+    if (showContactForm) {
+      // レイアウト反映後にスクロール
+      setTimeout(() => {
+        scrollToBottom();
+      }, 0);
     }
-    if (!contactForm.email.trim()) {
-      errors.email = 'メールアドレスを入力してください';
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactForm.email)) {
-      errors.email = '正しいメールアドレスを入力してください';
-    }
-    if (!contactForm.message.trim()) {
-      errors.message = 'お問い合わせ内容を入力してください';
-    }
-    
-    // エラーがある場合は処理を中断
-    if (errors.name || errors.company || errors.email || errors.message) {
-      setFormErrors(errors);
-      return;
-    }
-    
-    // 顧客情報をsessionStorageに保存
-    sessionStorage.setItem('customer_name', contactForm.name);
-    sessionStorage.setItem('customer_company', contactForm.company);
-    sessionStorage.setItem('customer_email', contactForm.email);
-    
-    // エラーをクリア
-    setFormErrors({ name: '', company: '', email: '', message: '' });
-    
-    // フォームを非表示
+  }, [showContactForm]);
+
+  // 既存顧客用フォーム送信ハンドラー
+  const handleExistingFormSubmit = async (
+    formData: { customerName: string; company: string; email: string; message: string; priority: 'low' | 'medium' | 'high'; category: string },
+    formType: 'support' | 'upgrade' | 'feedback'
+  ) => {
+    // フォームを閉じる
     setShowContactForm(false);
-    
+
     // 内容確認中メッセージの送信
     const confirmMessage: Message = {
-      id: messages.length + 1,
+      id: Date.now(),
       text: '内容をご確認いたします...',
       sender: 'bot',
       timestamp: new Date(),
-      isWaiting: true  // 待機状態のフラグ
+      isWaiting: true
     };
     setMessages(prev => [...prev, confirmMessage]);
-    
+
     try {
       let realConversationId: number;
-      
-      // 既存の会話IDが設定されているか確認
+
       if (conversationId && conversationId !== 'null') {
-        // 既存の会話を使用
         realConversationId = parseInt(conversationId);
       } else {
-        // 新しい会話を作成（session_idは毎回新しく生成）
-        const newSessionId = `${sessionManager.getTabSessionId()}-${Date.now()}`;
+        // 新しい会話を作成
         const createResponse = await fetch('http://localhost:3000/api/v1/conversations', {
           method: 'POST',
           headers: {
@@ -693,78 +678,48 @@ const ExistingCustomerChat: React.FC = () => {
           credentials: 'include',
           body: JSON.stringify({
             conversation: {
-              session_id: newSessionId,  // ユニークなsession_idを使用
               status: 'active',
               metadata: {
-                category: selectedCategory || '',
-                company: contactForm.company,
-                contactName: contactForm.name,
-                email: contactForm.email,
-                phone: contactForm.phone,
-                customerType: 'existing'  // 既存顧客として設定
+                customerType: 'existing',
+                category: selectedCategory || formData.category,
+                company: formData.company,
+                email: formData.email,
+                priority: formData.priority,
+                formType
               }
             }
           })
         });
-        
+
         const responseData = await createResponse.json();
-        
         if (!createResponse.ok) {
           console.error('Conversation creation error:', responseData);
           throw new Error(responseData.error || 'Failed to create conversation');
         }
-        
-        const { conversation } = responseData;
-        realConversationId = conversation.id; // データベースの実際のID
+        realConversationId = responseData.conversation.id;
       }
-      
-      // 既に接続されている場合は、既存の接続を使用してメッセージを送信
+
+      const formatted = `【サポート依頼（既存）】\nお名前: ${formData.customerName}\n会社名: ${formData.company}\nメールアドレス: ${formData.email}\n緊急度: ${formData.priority}\n種別: ${formType}\nカテゴリ: ${selectedCategory ? categoryNames[selectedCategory] : formData.category}\n内容:\n${formData.message}`;
+
       if (isConnected && conversationId === String(realConversationId)) {
-        // 既存の接続でメッセージを送信
-        const formMessage = `会社名: ${contactForm.company}
-お名前: ${contactForm.name}
-メールアドレス: ${contactForm.email}
-電話番号: ${contactForm.phone || ''}
-お問い合わせカテゴリ: ${selectedCategory ? categoryNames[selectedCategory] : 'その他'}
-お問い合わせ内容: ${contactForm.message}`;
-        
         actionCableService.sendMessage({
-          content: formMessage,
+          content: formatted,
           role: 'user',
-          metadata: {
-            category: selectedCategory,
-            conversationId: realConversationId
-          }
+          metadata: { category: selectedCategory || formData.category, conversationId: realConversationId }
         });
       } else {
-        // 新しい会話IDでActionCableに再接続
+        // 再接続して送信
         actionCableService.unsubscribe();
         actionCableService.subscribeToConversation(String(realConversationId), {
           onConnected: () => {
-            console.log(`Connected to conversation ${realConversationId}`);
             setIsConnected(true);
-            
-            // フォームデータを含むメッセージを送信
-            const formMessage = `会社名: ${contactForm.company}
-お名前: ${contactForm.name}
-メールアドレス: ${contactForm.email}
-電話番号: ${contactForm.phone || ''}
-お問い合わせカテゴリ: ${selectedCategory ? categoryNames[selectedCategory] : 'その他'}
-お問い合わせ内容: ${contactForm.message}`;
-            
             actionCableService.sendMessage({
-              content: formMessage,
+              content: formatted,
               role: 'user',
-              metadata: {
-                category: selectedCategory,
-                conversationId: realConversationId
-              }
+              metadata: { category: selectedCategory || formData.category, conversationId: realConversationId }
             });
           },
-          onDisconnected: () => {
-            console.log('WebSocket disconnected');
-            setIsConnected(false);
-          },
+          onDisconnected: () => setIsConnected(false),
           onReceived: (data) => {
             if (data.message) {
               const newMessage: Message = {
@@ -774,30 +729,21 @@ const ExistingCustomerChat: React.FC = () => {
                 timestamp: new Date(data.message.created_at || Date.now()),
                 role: data.message.role
               };
-              
-              // 企業からの返信を受信した場合
               if (data.message.role === 'company') {
-                // 自動返信タイマーをキャンセル
                 if ((window as any).autoReplyTimer) {
                   clearTimeout((window as any).autoReplyTimer);
                   (window as any).autoReplyTimer = null;
                 }
-                
-                // 待機中メッセージを削除
                 setMessages(prev => {
                   const filtered = prev.filter(m => !m.isWaiting);
-                  // 重複を避ける
                   const exists = filtered.some(m => m.id === newMessage.id);
                   if (exists) return filtered;
                   return [...filtered, newMessage];
                 });
               } else {
                 setMessages(prev => {
-                  // 重複を避ける（IDまたは同じ内容・時刻のメッセージ）
-                  const exists = prev.some(m => 
-                    m.id === newMessage.id || 
-                    (m.text === newMessage.text && 
-                     Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 1000)
+                  const exists = prev.some(m =>
+                    m.id === newMessage.id || (m.text === newMessage.text && Math.abs(m.timestamp.getTime() - newMessage.timestamp.getTime()) < 1000)
                   );
                   if (exists) return prev;
                   return [...prev, newMessage];
@@ -807,83 +753,34 @@ const ExistingCustomerChat: React.FC = () => {
           }
         });
       }
-      
-      // 会話IDを更新
+
       setConversationId(String(realConversationId));
-      
-      // タブごとのsessionStorageに保存
       sessionStorage.setItem('current_conversation_id', String(realConversationId));
-      
-      // 90秒後に自動返信（企業側から返信がない場合）
+
+      // 90秒後の自動返信（企業側から返信がない場合）
       const autoReplyTimer = setTimeout(() => {
         const autoReplyMessage: Message = {
           id: Date.now(),
-          text: `お問い合わせありがとうございます。
-以下の内容で承りました。
-【お客様情報】
-お名前: ${contactForm.name}
-会社名: ${contactForm.company}
-メールアドレス: ${contactForm.email}
-電話番号: ${contactForm.phone || 'なし'}
-お問い合わせ内容: ${contactForm.message}
-2営業日以内に担当者よりご連絡させていただきます。`,
+          text: `お問い合わせありがとうございます。\n以下の内容で承りました。\n【サポート依頼（既存）】\nお名前: ${formData.customerName}\n会社名: ${formData.company}\nメールアドレス: ${formData.email}\n緊急度: ${formData.priority}\n種別: ${formType}\n内容: ${formData.message}\n2営業日以内に担当者よりご連絡させていただきます。`,
           sender: 'company',
           timestamp: new Date()
         };
-        
         setMessages(prev => {
-          // 待機中メッセージを削除して自動返信を追加
           const filtered = prev.filter(m => !m.isWaiting);
           return [...filtered, autoReplyMessage];
         });
-        
-        // ActionCableで自動返信を送信（既に接続されている）
         actionCableService.sendMessage({
           content: autoReplyMessage.text,
           role: 'company',
-          metadata: {
-            conversationId: realConversationId
-          }
+          metadata: { conversationId: realConversationId }
         });
-      }, 90000); // 90秒
-      
-      // タイマーIDを保存（企業から返信があったらキャンセルする用）
+      }, 90000);
       (window as any).autoReplyTimer = autoReplyTimer;
-      
     } catch (error) {
-      console.error('Error creating conversation:', error);
-      // エラー時はローカルストレージに保存（フォールバック）
-      const chatId = `chat-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
-      const pendingChat = {
-        id: chatId,
-        companyName: contactForm.company,
-        contactName: contactForm.name,
-        email: contactForm.email,
-        phone: contactForm.phone,
-        message: contactForm.message,
-        category: selectedCategory || '',
-        timestamp: new Date().toLocaleString('ja-JP'),
-        responseType: null,
-        status: 'pending',
-        customerType: 'new'
-      };
-      
-      // ローカルストレージに保存
-      const existingChats = JSON.parse(localStorage.getItem('pendingChats') || '[]');
-      existingChats.push(pendingChat);
-      localStorage.setItem('pendingChats', JSON.stringify(existingChats));
+      console.error('Error handling existing customer form:', error);
     }
-    
-    // フォームをリセット
-    setContactForm({
-      name: '',
-      company: '',
-      email: '',
-      phone: '',
-      message: ''
-    });
   };
+
 
   return (
     // <AutoResumeChat onConversationLoaded={handleConversationLoaded}>
@@ -1027,236 +924,26 @@ const ExistingCustomerChat: React.FC = () => {
             </div>
           )}
           
-          {/* 依頼フォーム */}
+          {/* 既存顧客用 依頼フォーム */}
           {showContactForm && (
             <div style={{
               animation: 'fadeIn 0.3s ease-in',
               backgroundColor: 'white',
               borderRadius: '0.75rem',
-              padding: '1.5rem',
+              padding: '0.5rem 0',
               marginTop: '1rem',
               boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
             }}>
-              <h3 style={{ 
-                fontSize: '1.1rem', 
-                fontWeight: 'bold',
-                marginBottom: '0.5rem',
-                color: '#1f2937'
-              }}>
-                サポートのお問い合わせ
-              </h3>
-              <p style={{
-                fontSize: '0.75rem',
-                color: '#ef4444',
-                marginBottom: '1rem'
-              }}>
-                <span style={{ color: '#ef4444' }}>*</span> は必須入力項目です
-              </p>
-              <form onSubmit={handleContactSubmit}>
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '0.25rem'
-                  }}>
-                    <User size={16} />
-                    お名前 <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={contactForm.name}
-                    onChange={(e) => setContactForm({...contactForm, name: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '0.375rem',
-                      fontSize: '0.875rem'
-                    }}
-                    placeholder="山田 太郎"
-                  />
-                  {formErrors.name && (
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: '#ef4444',
-                      marginTop: '0.25rem',
-                      display: 'block'
-                    }}>
-                      {formErrors.name}
-                    </span>
-                  )}
-                </div>
-                
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '0.25rem'
-                  }}>
-                    <Building size={16} />
-                    会社名 <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={contactForm.company}
-                    onChange={(e) => setContactForm({...contactForm, company: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '0.375rem',
-                      fontSize: '0.875rem'
-                    }}
-                    placeholder="株式会社サンプル"
-                  />
-                  {formErrors.company && (
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: '#ef4444',
-                      marginTop: '0.25rem',
-                      display: 'block'
-                    }}>
-                      {formErrors.company}
-                    </span>
-                  )}
-                </div>
-                
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '0.25rem'
-                  }}>
-                    <Mail size={16} />
-                    メールアドレス <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={contactForm.email}
-                    onChange={(e) => setContactForm({...contactForm, email: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '0.375rem',
-                      fontSize: '0.875rem'
-                    }}
-                    placeholder="sample@example.com"
-                  />
-                  {formErrors.email && (
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: '#ef4444',
-                      marginTop: '0.25rem',
-                      display: 'block'
-                    }}>
-                      {formErrors.email}
-                    </span>
-                  )}
-                </div>
-                
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ 
-                    display: 'flex', 
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '0.25rem'
-                  }}>
-                    <Phone size={16} />
-                    電話番号
-                  </label>
-                  <input
-                    type="tel"
-                    value={contactForm.phone}
-                    onChange={(e) => setContactForm({...contactForm, phone: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '0.375rem',
-                      fontSize: '0.875rem'
-                    }}
-                    placeholder="03-1234-5678"
-                  />
-                </div>
-                
-                <div style={{ marginBottom: '1rem' }}>
-                  <label style={{ 
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    color: '#374151',
-                    marginBottom: '0.25rem',
-                    display: 'block'
-                  }}>
-                    お問い合わせ内容 <span style={{ color: '#ef4444' }}>*</span>
-                  </label>
-                  <textarea
-                    required
-                    value={contactForm.message}
-                    onChange={(e) => setContactForm({...contactForm, message: e.target.value})}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      border: '1px solid #d1d5db',
-                      borderRadius: '0.375rem',
-                      fontSize: '0.875rem',
-                      minHeight: '80px',
-                      resize: 'vertical'
-                    }}
-                    placeholder="サポートが必要な内容を具体的にお聞かせください"
-                  />
-                  {formErrors.message && (
-                    <span style={{
-                      fontSize: '0.75rem',
-                      color: '#ef4444',
-                      marginTop: '0.25rem',
-                      display: 'block'
-                    }}>
-                      {formErrors.message}
-                    </span>
-                  )}
-                </div>
-                
-                <button
-                  type="submit"
-                  style={{
-                    width: '100%',
-                    padding: '0.75rem',
-                    backgroundColor: '#47d159',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '0.375rem',
-                    fontSize: '0.875rem',
-                    fontWeight: '500',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#3cb84a'}
-                  onMouseOut={(e) => e.currentTarget.style.backgroundColor = '#47d159'}
-                >
-                  問い合わせを送信
-                </button>
-              </form>
+              <ExistingCustomerForm
+                isVisible={true}
+                onClose={() => setShowContactForm(false)}
+                onSubmit={handleExistingFormSubmit}
+                isInline={true}
+              />
             </div>
           )}
+          {/* スクロールアンカー */}
+          <div ref={bottomRef} />
         </div>
       </div>
 
@@ -1331,6 +1018,13 @@ const ExistingCustomerChat: React.FC = () => {
           }
         }
       `}</style>
+
+
+      {/* 既存顧客用フローティングボタン */}
+      <ExistingCustomerFormButton 
+        onFormToggle={handleFloatingFormToggle}
+        isFormVisible={showContactForm}
+      />
       </div>
     // </AutoResumeChat>
   );

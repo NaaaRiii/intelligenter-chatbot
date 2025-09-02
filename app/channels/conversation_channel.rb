@@ -52,7 +52,10 @@ class ConversationChannel < ApplicationCable::Channel
 
     # アシスタントの返信が必要な場合は非同期ジョブをキュー
     if message.user?
-      GenerateAssistantResponseJob.perform_later(@conversation.id)
+      BotResponseJob.perform_later(
+        conversation_id: @conversation.id,
+        user_message_id: message.id
+      )
     end
   end
 

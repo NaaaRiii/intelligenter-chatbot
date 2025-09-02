@@ -10,6 +10,20 @@ class EnhancedClaudeApiService < ClaudeApiService
 
   # 拡張された応答生成
   def generate_enhanced_response(conversation_history, user_message, analysis = nil)
+    # 自然な会話サービスを優先的に使用
+    natural_service = NaturalConversationService.new
+    context = {
+      category: analysis&.dig(:category) || extract_category_from_history(conversation_history)
+    }
+    
+    begin
+      # AI APIを使用した自然な応答生成
+      return natural_service.generate_natural_response(user_message, conversation_history, context)
+    rescue StandardError => e
+      Rails.logger.warn "Natural conversation service failed, falling back: #{e.message}"
+      # フォールバック処理
+    end
+    
     analysis ||= @inquiry_analyzer.analyze(user_message, conversation_history)
     
     # 情報収集が必要な場合
@@ -26,7 +40,7 @@ class EnhancedClaudeApiService < ClaudeApiService
     # 通常の応答生成
     messages = build_contextualized_messages(conversation_history, user_message, analysis)
     
-    response = @client.messages(
+    response = call_anthropic_messages(
       model: 'claude-3-haiku-20240307',
       max_tokens: 1000,
       temperature: 0.7,
@@ -35,6 +49,7 @@ class EnhancedClaudeApiService < ClaudeApiService
     )
     
     response_text = extract_text_content(response)
+    response_text = compact_text(response_text)
 
     # 大きく話が逸れている場合は、元のカテゴリへ穏やかにリダイレクト
     begin
@@ -304,5 +319,26 @@ class EnhancedClaudeApiService < ClaudeApiService
       
       これらの情報をお聞かせいただければ、より具体的で実践的なアドバイスが可能です。
     RESPONSE
+  end
+
+  # 会話履歴からカテゴリを抽出
+  def extract_category_from_history(conversation_history)
+    return 'general' if conversation_history.empty?
+    
+    # 最初のメッセージや最近のメッセージからカテゴリを推測
+    recent_messages = conversation_history.last(3).map { |msg| msg[:content] }.join(' ')
+    
+    case recent_messages
+    when /マーケティング|広告|SEO/
+      'marketing'
+    when /技術|システム|開発|API/
+      'tech'
+    when /EC|ショッピング|モール/
+      'ecommerce'
+    when /セキュリティ|保護|暗号/
+      'security'
+    else
+      'general'
+    end
   end
 end

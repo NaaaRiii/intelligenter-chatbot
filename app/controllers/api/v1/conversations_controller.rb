@@ -56,6 +56,22 @@ module Api
         @conversation.guest_user_id = @user_id if @user_id.present?
         @conversation.save!
         
+        # 初回メッセージがある場合は処理
+        if params[:initial_message].present?
+          initial_message = @conversation.messages.create!(
+            content: params[:initial_message],
+            role: 'user',
+            metadata: {
+              category: params[:category],
+              customer_type: params[:customer_type]
+            }
+          )
+          
+          # AI応答をバックグラウンドで生成
+          ProcessAiResponseJob.perform_later(initial_message.id)
+          Rails.logger.info "Initial message created and AI response job queued for conversation #{@conversation.id}"
+        end
+        
         # マーケティングカテゴリーの新規顧客の場合、Slack通知を送信
         # customerTypeとcustomer_typeの両方をチェック
         if @conversation.metadata&.dig('category') == 'marketing' && 
@@ -69,7 +85,8 @@ module Api
             include: {
               messages: { only: [:id, :content, :role, :created_at] }
             }
-          )
+          ),
+          id: @conversation.id  # 明示的にIDを追加
         }, status: :created
       end
 

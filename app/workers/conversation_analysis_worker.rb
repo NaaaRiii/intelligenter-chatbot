@@ -71,8 +71,8 @@ class ConversationAnalysisWorker
   def broadcast_analysis_complete(conversation, result)
     return unless conversation
 
-    ActionCable.server.broadcast(
-      "conversation_#{conversation.id}",
+    ConversationChannel.broadcast_to(
+      conversation,
       {
         type: 'analysis_complete',
         conversation_id: conversation.id,
@@ -83,8 +83,8 @@ class ConversationAnalysisWorker
   end
 
   def broadcast_analysis_error(conversation_id, error_message)
-    ActionCable.server.broadcast(
-      "conversation_#{conversation_id}",
+    ConversationChannel.broadcast_to(
+      Conversation.find(conversation_id),
       {
         type: 'analysis_error',
         conversation_id: conversation_id,

@@ -113,8 +113,8 @@ class Message < ApplicationRecord
   end
 
   def broadcast_message
-    ActionCable.server.broadcast(
-      "conversation_#{conversation_id}",
+    ConversationChannel.broadcast_to(
+      conversation,
       { message: as_json }
     )
   end

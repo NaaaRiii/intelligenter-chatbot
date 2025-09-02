@@ -8,13 +8,40 @@ class BotResponseJob < ApplicationJob
   retry_on StandardError, wait: 5.seconds, attempts: 3
 
   def perform(conversation_id:, user_message_id:)
+    Rails.logger.info "="*80
+    Rails.logger.info "[JOB FLOW START] BotResponseJob#perform"
+    Rails.logger.info "Conversation ID: #{conversation_id}"
+    Rails.logger.info "User Message ID: #{user_message_id}"
+    Rails.logger.info "="*80
+    
     conversation, user_message = load_records(conversation_id, user_message_id)
-    return unless valid_user_message?(user_message, conversation_id)
+    
+    Rails.logger.info "[JOB STEP 1] Records loaded"
+    Rails.logger.info "  - User Message: #{user_message.content}"
+    Rails.logger.info "  - Message Role: #{user_message.role}"
+    
+    unless valid_user_message?(user_message, conversation_id)
+      Rails.logger.warn "[JOB WARNING] Invalid user message, skipping"
+      return
+    end
 
+    Rails.logger.info "[JOB STEP 2] Generating bot response via ChatBotService"
     bot_response = generate_bot_response(conversation, user_message)
+    
+    if bot_response
+      Rails.logger.info "[JOB STEP 3] Bot response generated successfully"
+      Rails.logger.info "  - Response ID: #{bot_response.id}"
+      Rails.logger.info "  - Response Content: #{bot_response.content&.truncate(200)}"
+    else
+      Rails.logger.error "[JOB ERROR] Bot response generation failed"
+    end
+    
     handle_response(conversation, user_message, bot_response)
+    
+    Rails.logger.info "[JOB FLOW END] BotResponseJob#perform"
+    Rails.logger.info "="*80
   rescue ActiveRecord::RecordNotFound => e
-    Rails.logger.error "Record not found: #{e.message}"
+    Rails.logger.error "[JOB ERROR] Record not found: #{e.message}"
   end
 
   private
@@ -28,6 +55,7 @@ class BotResponseJob < ApplicationJob
   end
 
   def generate_bot_response(conversation, user_message)
+    Rails.logger.info "[JOB] Calling ChatBotService.generate_response"
     ChatBotService.new(
       conversation: conversation,
       user_message: user_message

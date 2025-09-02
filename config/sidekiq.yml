@@ -6,7 +6,8 @@
 
 # Sidekiqのキュー設定
 :queues:
-  - [critical, 6]
+  - [critical, 7]
+  - [ai_processing, 6]
   - [notifications, 5]
   - [default, 4]
   - [analysis, 3]

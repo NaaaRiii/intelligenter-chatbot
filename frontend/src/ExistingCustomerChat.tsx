@@ -535,12 +535,16 @@ const ExistingCustomerChat: React.FC = () => {
             'X-Session-Id': tabSessionId
           },
           body: JSON.stringify({
+            conversation: {
+              metadata: {
+                category: selectedCategory,
+                customer_type: 'existing',
+                category_name: categoryNames[selectedCategory]
+              }
+            },
             initial_message: messageCopy,
             category: selectedCategory,
-            customer_type: 'existing',
-            metadata: {
-              category_name: categoryNames[selectedCategory]
-            }
+            customer_type: 'existing'
           }),
           credentials: 'include'
         });
@@ -556,16 +560,7 @@ const ExistingCustomerChat: React.FC = () => {
             onConnected: () => {
               console.log('WebSocket connected for existing customer');
               setIsConnected(true);
-              // 初回メッセージを送信
-              actionCableService.sendMessage({
-                content: messageCopy,
-                role: 'user',
-                metadata: {
-                  category: selectedCategory,
-                  conversationId: newConversationId,
-                  customer_type: 'existing'
-                }
-              });
+              // 初回メッセージは既にバックエンドで処理されているため、ここでは送信しない
             },
             onDisconnected: () => {
               console.log('WebSocket disconnected');
@@ -595,28 +590,16 @@ const ExistingCustomerChat: React.FC = () => {
         }
       } catch (error) {
         console.error('Error creating conversation:', error);
-      }
-      
-      setIsLoading(true);
-      // AI応答を生成（ローカル）
-      setTimeout(() => {
-        const response = generateExistingCustomerResponse(selectedCategory, messageCopy);
-        
-        const botMessage: Message = {
+        setIsLoading(false);
+        // エラーメッセージを表示
+        const errorMessage: Message = {
           id: Date.now() + 1,
-          text: response,
+          text: '申し訳ございません。会話の作成中にエラーが発生しました。しばらくしてから再度お試しください。',
           sender: 'bot',
           timestamp: new Date()
         };
-        setMessages(prev => [...prev, botMessage]);
-        setIsLoading(false);
-        // setMessageCount(prev => prev + 1);
-        
-        // アシスタントメッセージも送信
-        if (isConnected) {
-          sendMessageToCable(response, 'assistant');
-        }
-      }, 1500);
+        setMessages(prev => [...prev, errorMessage]);
+      }
     }
   };
 

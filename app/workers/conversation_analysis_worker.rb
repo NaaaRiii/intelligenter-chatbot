@@ -26,6 +26,19 @@ class ConversationAnalysisWorker
 
     conversation = Conversation.find(conversation_id)
     
+    # 2-3往復で本分析（ニーズプレビュー更新）
+    flags = Rails.configuration.x.needs_preview
+    user_turns = conversation.messages.where(role: 'user').count
+    if flags.enabled
+      needs_preview_missing = conversation.analyses.by_type('needs_preview').blank?
+      within_window = user_turns >= flags.turn_threshold_min && user_turns <= flags.turn_threshold_max
+      over_window_without_preview = user_turns > flags.turn_threshold_max && needs_preview_missing
+
+      if within_window || over_window_without_preview
+        update_needs_preview(conversation)
+      end
+    end
+
     # 分析サービスの実行
     result = if options['use_storage']
                # ストレージサービスを使用（感情分析 + DB保存）
@@ -57,6 +70,36 @@ class ConversationAnalysisWorker
   end
 
   private
+  def update_needs_preview(conversation)
+    messages = conversation.messages
+                            .order(:created_at)
+                            .last(8)
+                            .map { |m| { role: m.role, content: m.content } }
+
+    inference = NeedInferenceService.new.infer(messages: messages)
+
+    analysis = conversation.analyses.find_or_initialize_by(analysis_type: 'needs_preview')
+    analysis.analysis_data = inference
+    analysis.confidence_score = inference['confidence']
+    analysis.analyzed_at = Time.current
+    analysis.save!
+
+    ConversationChannel.broadcast_to(
+      conversation,
+      {
+        type: 'needs_preview',
+        analysis: {
+          confidence: analysis.confidence_score,
+          category: inference['category'],
+          need_type: inference['need_type'],
+          keywords: inference['keywords'],
+          evidence: inference['evidence']
+        }
+      }
+    )
+  rescue StandardError => e
+    Rails.logger.warn "[ConversationAnalysisWorker] needs_preview update failed: #{e.message}"
+  end
 
   def prepare_messages(conversation)
     conversation.messages.order(:created_at).map do |message|

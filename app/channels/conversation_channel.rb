@@ -36,6 +36,12 @@ class ConversationChannel < ApplicationCable::Channel
     
     Rails.logger.info "[STEP 2] Message broadcasted to subscribers"
 
+    # 初回の裏準備: 最初のユーザーメッセージでNeedPreviewJobをenqueue（既存がなければ）
+    if message.user? && @conversation.messages.where(role: 'user').count == 1
+      NeedPreviewJob.perform_later(@conversation.id)
+      Rails.logger.info "[STEP 3] NeedPreviewJob enqueued for conversation ##{@conversation.id}"
+    end
+
     # 最初のユーザーメッセージで新規顧客の場合、Slack通知を送信
     if message.user? && 
        @conversation.messages.where(role: 'user').count == 1 &&
@@ -73,6 +79,14 @@ class ConversationChannel < ApplicationCable::Channel
       )
       
       Rails.logger.info "[STEP 5] BotResponseJob queued successfully"
+
+      # 2-3往復に到達したら本分析（直近5-8件）をSidekiqワーカーで再推定
+      flags = Rails.configuration.x.needs_preview
+      user_turns = @conversation.messages.where(role: 'user').count
+      if flags.enabled && user_turns >= flags.turn_threshold_min && user_turns <= flags.turn_threshold_max
+        ConversationAnalysisWorker.perform_async(@conversation.id, { 'use_storage' => false })
+        Rails.logger.info "[STEP 6] ConversationAnalysisWorker enqueued for needs_preview update (turns=#{user_turns})"
+      end
     else
       Rails.logger.info "[STEP 4] Non-user message, skipping bot response"
     end

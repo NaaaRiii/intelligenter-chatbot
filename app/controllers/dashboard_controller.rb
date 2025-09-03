@@ -11,6 +11,7 @@ class DashboardController < ApplicationController
     load_recent_conversations
     load_escalations
     load_analytics_data
+    load_needs_previews
   end
 
   def export
@@ -49,6 +50,7 @@ class DashboardController < ApplicationController
     load_recent_conversations
     load_escalations
     load_analytics_data
+    load_needs_previews
 
     respond_to do |format|
       format.html { redirect_to dashboard_path }
@@ -130,6 +132,14 @@ class DashboardController < ApplicationController
       timeline_hash[date] = @timeline_data[date.to_s] || 0
     end
     @timeline_data = timeline_hash
+  end
+
+  def load_needs_previews
+    @needs_previews = Analysis
+                      .by_type('needs_preview')
+                      .includes(:conversation)
+                      .order(created_at: :desc)
+                      .limit(10)
   end
 
   def generate_csv_data

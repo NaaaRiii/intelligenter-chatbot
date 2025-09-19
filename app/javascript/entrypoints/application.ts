@@ -3,7 +3,7 @@ console.log("=== Application.ts loading started ===")
 
 import "@hotwired/turbo-rails"
 import "../controllers"
-import "../styles/application.css"
+import "../stylesheets/application.css"
 import "../typing_indicator_manager"
 
 console.log("=== Importing React modules ===")

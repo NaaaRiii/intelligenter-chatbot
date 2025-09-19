@@ -492,7 +492,7 @@ const NewCustomerChat: React.FC = () => {
       setMessages(prev => [...prev, userMessage]);
       // ActionCable経由で送信
       sendMessageToCable(messageCopy, 'user');
-      setIsLoading(false);
+      setIsLoading(true);
     }
     // カテゴリー選択後の初期段階（会話IDがまだない）
     else if (selectedCategory && !conversationId) {
@@ -517,6 +517,7 @@ const NewCustomerChat: React.FC = () => {
               metadata: {
                 category: selectedCategory,
                 customer_type: 'new',
+                customerType: 'new',
                 customer_name: contactForm.name || '未設定',
                 customer_email: contactForm.email || '未設定'
               }
@@ -539,7 +540,38 @@ const NewCustomerChat: React.FC = () => {
         actionCableService.subscribeToConversation(String(newConversationId), {
           onConnected: () => {
             setIsConnected(true);
-            // 初回メッセージは既にバックエンドで処理されているため、ここでは送信しない
+            // 取りこぼし補完: 購読前に生成されたBot応答を同期
+            setIsLoading(true);
+            fetch(`http://localhost:3000/api/v1/conversations/${newConversationId}/messages`, {
+              headers: {
+                'X-User-Id': sessionManager.getUserId(),
+                'X-Session-Id': sessionManager.getTabSessionId()
+              },
+              credentials: 'include'
+            })
+              .then(r => (r.ok ? r.json() : Promise.reject(r)))
+              .then(payload => {
+                const items = (payload.messages || []).map((m: any) => ({
+                  id: m.id,
+                  text: m.content,
+                  sender: m.role === 'user' ? 'user' : 'bot',
+                  timestamp: new Date(m.created_at || Date.now())
+                }));
+                const hasAssistant = (payload.messages || []).some((m: any) => m.role && m.role !== 'user');
+                setMessages(prev => {
+                  const byId = new Set(prev.filter(p => p.id).map(p => p.id));
+                  const merged = [...prev];
+                  for (const it of items) {
+                    const dup = byId.has(it.id) || merged.some(m => m.text === it.text && Math.abs(m.timestamp.getTime() - it.timestamp.getTime()) < 1000);
+                    if (!dup) merged.push(it);
+                  }
+                  return merged;
+                });
+                if (hasAssistant) {
+                  setIsLoading(false);
+                }
+              })
+              .catch(() => void 0);
             console.log('WebSocket connected for new customer conversation:', newConversationId);
           },
           onDisconnected: () => {
@@ -558,8 +590,10 @@ const NewCustomerChat: React.FC = () => {
               
               console.log('New message to add:', newMessage);
               
-              // ローディング状態を解除
-              setIsLoading(false);
+              // Bot/会社からの返信でローディングを解除（ユーザーメッセージでは解除しない）
+              if (data.message.role && data.message.role !== 'user') {
+                setIsLoading(false);
+              }
               
               // メッセージを追加（重複チェック付き）
               setMessages(prev => {
@@ -716,6 +750,34 @@ const NewCustomerChat: React.FC = () => {
           onConnected: () => {
             console.log(`Connected to conversation ${realConversationId}`);
             setIsConnected(true);
+            // 取りこぼし補完
+            setIsLoading(true);
+            fetch(`http://localhost:3000/api/v1/conversations/${realConversationId}/messages`, {
+              headers: {
+                'X-User-Id': sessionManager.getUserId(),
+                'X-Session-Id': sessionManager.getTabSessionId()
+              },
+              credentials: 'include'
+            })
+              .then(r => (r.ok ? r.json() : Promise.reject(r)))
+              .then(payload => {
+                const items = (payload.messages || []).map((m: any) => ({
+                  id: m.id,
+                  text: m.content,
+                  sender: m.role === 'user' ? 'user' : (m.role === 'assistant' ? 'bot' : 'user'),
+                  timestamp: new Date(m.created_at || Date.now())
+                }));
+                setMessages(prev => {
+                  const byId = new Set(prev.filter(p => p.id).map(p => p.id));
+                  const merged = [...prev];
+                  for (const it of items) {
+                    const dup = byId.has(it.id) || merged.some(m => m.text === it.text && Math.abs(m.timestamp.getTime() - it.timestamp.getTime()) < 1000);
+                    if (!dup) merged.push(it);
+                  }
+                  return merged;
+                });
+              })
+              .catch(() => void 0);
             
             // フォームデータを含むメッセージを送信
             const formMessage = `会社名: ${contactForm.company}
@@ -977,6 +1039,34 @@ const NewCustomerChat: React.FC = () => {
           onConnected: () => {
             console.log(`Connected to conversation ${realConversationId}`);
             setIsConnected(true);
+            // 取りこぼし補完
+            setIsLoading(true);
+            fetch(`http://localhost:3000/api/v1/conversations/${realConversationId}/messages`, {
+              headers: {
+                'X-User-Id': sessionManager.getUserId(),
+                'X-Session-Id': sessionManager.getTabSessionId()
+              },
+              credentials: 'include'
+            })
+              .then(r => (r.ok ? r.json() : Promise.reject(r)))
+              .then(payload => {
+                const items = (payload.messages || []).map((m: any) => ({
+                  id: m.id,
+                  text: m.content,
+                  sender: m.role === 'user' ? 'user' : (m.role === 'assistant' ? 'bot' : 'user'),
+                  timestamp: new Date(m.created_at || Date.now())
+                }));
+                setMessages(prev => {
+                  const byId = new Set(prev.filter(p => p.id).map(p => p.id));
+                  const merged = [...prev];
+                  for (const it of items) {
+                    const dup = byId.has(it.id) || merged.some(m => m.text === it.text && Math.abs(m.timestamp.getTime() - it.timestamp.getTime()) < 1000);
+                    if (!dup) merged.push(it);
+                  }
+                  return merged;
+                });
+              })
+              .catch(() => void 0);
             
             // フォームデータを含むメッセージを送信
             actionCableService.sendMessage({

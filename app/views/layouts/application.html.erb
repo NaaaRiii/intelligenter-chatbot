@@ -13,7 +13,7 @@
     <% if Rails.env.development? %>
       <%= vite_client_tag %>
     <% end %>
-    <%= vite_javascript_tag 'application' %>
+    <%= vite_javascript_tag 'application.ts' %>
 
     <% if Rails.env.test? %>
       <script>

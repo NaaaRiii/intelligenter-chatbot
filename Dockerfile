@@ -1,5 +1,5 @@
 # Multi-stage build for production optimization
-FROM ruby:3.2.2-alpine AS base
+FROM ruby:3.2.8-alpine AS base
 
 # Install base dependencies
 RUN apk add --no-cache \
@@ -13,7 +13,8 @@ RUN apk add --no-cache \
     tzdata \
     gcompat \
     bash \
-    curl
+    curl \
+    yaml-dev
 
 # Set working directory
 WORKDIR /app
@@ -29,8 +30,8 @@ RUN apk add --no-cache \
     vim \
     less
 
-# Install bundler
-RUN gem install bundler:2.5.3
+# Install bundler (align with lockfile)
+RUN gem install bundler:2.6.9
 
 # Copy Gemfile first for better caching
 COPY Gemfile* ./
@@ -56,8 +57,8 @@ CMD ["bash"]
 # Production stage
 FROM base AS production
 
-# Install bundler
-RUN gem install bundler:2.5.3
+# Install bundler (align with lockfile)
+RUN gem install bundler:2.6.9
 
 # Copy Gemfile and install production dependencies
 COPY Gemfile* ./

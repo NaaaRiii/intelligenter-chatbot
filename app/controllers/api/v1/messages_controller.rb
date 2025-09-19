@@ -4,6 +4,8 @@ module Api
   module V1
     # メッセージ管理のRESTful APIコントローラー
     class MessagesController < BaseController
+      # 開発中は履歴取得のみ認証を緩和（フロント初期表示の取りこぼし補完で使用）
+      skip_before_action :authenticate_api_user!, only: [:index], if: -> { Rails.env.development? }
       before_action :set_conversation
       before_action :set_message, only: %i[show update destroy]
 
@@ -94,11 +96,14 @@ module Api
       private
 
       def set_conversation
-        @conversation = if Rails.env.test?
-                          Conversation.find(params[:conversation_id])
-                        else
-                          current_user.conversations.find(params[:conversation_id])
-                        end
+        # 開発 or 明示的なユーザー識別子がある場合は緩和して取得
+        if Rails.env.development? || request.headers['X-User-Id'].present?
+          @conversation = Conversation.find(params[:conversation_id])
+        elsif Rails.env.test?
+          @conversation = Conversation.find(params[:conversation_id])
+        else
+          @conversation = current_user.conversations.find(params[:conversation_id])
+        end
       end
 
       def set_message

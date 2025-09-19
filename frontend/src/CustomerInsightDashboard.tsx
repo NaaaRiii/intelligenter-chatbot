@@ -298,8 +298,18 @@ const CustomerInsightDashboard: React.FC = () => {
                 }
               }
               
-              // 新規/既存の判定：metadataのcustomerTypeまたはguest_user_idの有無で判定
-              const isNewCustomer = conv.metadata?.customerType === 'new' || !conv.guest_user_id;
+              // 新規/既存の判定
+              // 優先: metadata.customerType or metadata.customer_type
+              // フォールバック: 両方なければ guest_user_id の有無
+              const isNewCustomer = (
+                conv.metadata?.customerType === 'new' ||
+                conv.metadata?.customer_type === 'new' ||
+                (
+                  conv.metadata?.customerType === undefined &&
+                  conv.metadata?.customer_type === undefined &&
+                  !conv.guest_user_id
+                )
+              );
               
               return {
                 id: conv.id, // 数値のID
